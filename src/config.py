@@ -15,6 +15,8 @@ HORARIOS_XLSX = DATA_DIR / "Horarios Entrega.XLSX"
 CANONICAL_PARQUET = CACHE_DIR / "canonical.parquet"
 DATA_QUALITY_REPORT = CACHE_DIR / "data_quality_report.txt"
 GEOCODING_PARQUET = CACHE_DIR / "geocoding.parquet"
+KPI_COMPARISON_CSV = CACHE_DIR / "kpi_comparison.csv"
+KPI_HISTOGRAM_HTML = CACHE_DIR / "kpi_histogram.html"
 GEOCODING_SMOKE_HTML = CACHE_DIR / "geocoding_smoke.html"
 DISTANCE_MATRIX_PARQUET = CACHE_DIR / "distance_matrix.parquet"
 

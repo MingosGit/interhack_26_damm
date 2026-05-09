@@ -70,6 +70,7 @@ class BayItem:
     es_retornable: bool = False     # True si representa retornos recogidos
     poblacion: str = ""
     cp: str = ""
+    zona_dd: str = ""
 
 
 @dataclass
@@ -156,7 +157,7 @@ def _estimate_altura(volumen_l: float, capacidad_l: float) -> float:
 def _build_bay_item(stop: Stop, materiales: list[dict] | None = None,
                     volumen_l: float | None = None,
                     peso_kg: float | None = None,
-                    capacidad_l: float = config.BAHIA_LARGO_CM) -> BayItem:
+                    capacidad_l: float = 2400.0) -> BayItem:
     mats = materiales if materiales is not None else _materiales_from_stop(stop)
     v = float(volumen_l if volumen_l is not None else stop.volumen_l)
     p = float(peso_kg if peso_kg is not None else stop.peso_kg)
@@ -170,6 +171,7 @@ def _build_bay_item(stop: Stop, materiales: list[dict] | None = None,
         tipo_dominante=_tipo_dominante(mats),
         poblacion=stop.poblacion,
         cp=getattr(stop, "cp", ""),
+        zona_dd=getattr(stop, "zona_dd", ""),
     )
 
 
@@ -194,10 +196,10 @@ def _sort_items_by_stability(items: list[BayItem]) -> list[BayItem]:
 # ---------------------------------------------------------------------------
 
 def _shareable(a: BayItem, b: BayItem) -> bool:
-    """Dos items pueden compartir bahía si comparten CP o población."""
+    """Dos items pueden compartir bahía si comparten CP o zona logística."""
     if a.cp and b.cp and a.cp == b.cp:
         return True
-    if a.poblacion and b.poblacion and a.poblacion == b.poblacion:
+    if a.zona_dd and b.zona_dd and a.zona_dd == b.zona_dd:
         return True
     return False
 
@@ -239,13 +241,25 @@ def pack_truck(
     ]
     next_bay = 0
 
+    def _fit_in_existing_bay(item: BayItem) -> int | None:
+        """Encaja en la bahía abierta más reciente que tenga sitio.
+
+        Preserva la localidad de descarga: los últimos clientes meten al
+        fondo del camión, los primeros quedan en bahías de cabeza.
+        """
+        for k in range(min(next_bay, n_bays) - 1, -1, -1):
+            b = bays[k]
+            if (b.vol_usado_l + item.volumen_l <= b.capacidad_l
+                    and b.peso_kg + item.peso_kg <= b.capacidad_kg_max):
+                return k
+        return None
+
     i = 0
     while i < len(ordered_stops):
         stop = ordered_stops[i]
-        # Si esa parada cabe en < 0.5 bahía Y el siguiente cliente es pequeño Y
-        # comparten zona, los combinamos en la misma bahía.
+        # Caso 1 — combinar dos pequeños consecutivos del mismo CP/zona.
         if (strategy == "hybrid" and stop.volumen_l < 0.5 * cap_vol_bay
-                and i + 1 < len(ordered_stops)):
+                and i + 1 < len(ordered_stops) and next_bay < n_bays):
             nxt = ordered_stops[i + 1]
             if (nxt.volumen_l < 0.5 * cap_vol_bay
                     and stop.volumen_l + nxt.volumen_l <= cap_vol_bay
@@ -253,37 +267,41 @@ def pack_truck(
                 a = _build_bay_item(stop, capacidad_l=cap_vol_bay)
                 b = _build_bay_item(nxt, capacidad_l=cap_vol_bay)
                 if _shareable(a, b):
-                    if next_bay >= n_bays:
-                        raise VolumenExcedidoError(
-                            f"No quedan bahías para {stop.cliente_id}/{nxt.cliente_id}"
-                        )
                     bays[next_bay].items.extend([a, b])
                     next_bay += 1
                     i += 2
                     continue
 
         n_required = max(1, int(_ceil_div(stop.volumen_l, cap_vol_bay)))
-        if next_bay + n_required > n_bays:
+
+        # Caso 2 — quedan bahías nuevas para este cliente.
+        if next_bay + n_required <= n_bays:
+            if n_required == 1:
+                bays[next_bay].items.append(_build_bay_item(stop, capacidad_l=cap_vol_bay))
+                next_bay += 1
+            else:
+                vol_per_bay = stop.volumen_l / n_required
+                peso_per_bay = stop.peso_kg / n_required
+                mats = _materiales_from_stop(stop)
+                for k in range(n_required):
+                    share_mats = mats if k == 0 else []
+                    bays[next_bay + k].items.append(_build_bay_item(
+                        stop, materiales=share_mats,
+                        volumen_l=vol_per_bay, peso_kg=peso_per_bay,
+                        capacidad_l=cap_vol_bay,
+                    ))
+                next_bay += n_required
+            i += 1
+            continue
+
+        # Caso 3 — N paradas > N bahías: encaja en la última con espacio.
+        item = _build_bay_item(stop, capacidad_l=cap_vol_bay)
+        slot = _fit_in_existing_bay(item)
+        if slot is None:
             raise VolumenExcedidoError(
-                f"Cliente {stop.cliente_id} requiere {n_required} bahías, "
-                f"sólo quedan {n_bays - next_bay}"
+                f"No cabe el cliente {stop.cliente_id} en ninguna bahía existente"
             )
-        if n_required == 1:
-            bays[next_bay].items.append(_build_bay_item(stop, capacidad_l=cap_vol_bay))
-            next_bay += 1
-        else:
-            # Repartir uniformemente en bahías contiguas.
-            vol_per_bay = stop.volumen_l / n_required
-            peso_per_bay = stop.peso_kg / n_required
-            mats = _materiales_from_stop(stop)
-            for k in range(n_required):
-                share_mats = mats if k == 0 else []   # detalle sólo en la primera
-                bays[next_bay + k].items.append(_build_bay_item(
-                    stop, materiales=share_mats,
-                    volumen_l=vol_per_bay, peso_kg=peso_per_bay,
-                    capacidad_l=cap_vol_bay,
-                ))
-            next_bay += n_required
+        bays[slot].items.append(item)
         i += 1
 
     # Ordenar items dentro de cada bahía por estabilidad.

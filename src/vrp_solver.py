@@ -49,7 +49,10 @@ class Stop:
     tiempo_servicio_s: int = 600            # 10 min default
     cliente_nombre: str = ""
     poblacion: str = ""
+    cp: str = ""
+    zona_dd: str = ""
     entrega_id: int | None = None
+    materiales: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -134,9 +137,11 @@ def solve_single_truck(
     cada CumulVar(j) representa la **hora de llegada** a la parada j. Las
     ventanas se aplican vía `CumulVar.SetRange`.
 
-    `use_pickup_delivery` queda reservado para MVP 7.
+    Si ``use_pickup_delivery=True`` (MVP 7), se modela la ocupación como una
+    dimensión adicional. En cada parada k se descuenta `volumen_l` (entregado)
+    y se suma `RATIO_RETORNO_DEFECTO * volumen_retornable_l` (recogido). La
+    ocupación nunca puede exceder la capacidad volumétrica del camión.
     """
-    del use_pickup_delivery  # reservado MVP 7
 
     n_stops = len(stops)
     if n_stops == 0:
@@ -245,6 +250,36 @@ def solve_single_truck(
     kg_cb_idx = routing.RegisterUnaryTransitCallback(demand_kg_cb)
     routing.AddDimensionWithVehicleCapacity(kg_cb_idx, 0, [cap_kg], True, "Peso")
 
+    # ---- (MVP 7) ocupación dinámica con pickup-delivery ----
+    # net_demand[k] = -vol_entregado_k + ratio*vol_retornable_k.
+    # Inicio depot = vol_total_l (camión lleno). Capacidad = cap_vol.
+    if use_pickup_delivery:
+        ratio_ret = config.RATIO_RETORNO_DEFECTO
+        net = [0] + [
+            -int(round(s.volumen_l)) + int(round(ratio_ret * s.volumen_retornable_l))
+            for s in stops
+        ]
+        load_initial = int(round(sum(s.volumen_l for s in stops)))
+
+        def net_demand_cb(from_idx: int) -> int:
+            return net[manager.IndexToNode(from_idx)]
+        net_cb_idx = routing.RegisterUnaryTransitCallback(net_demand_cb)
+
+        # Slack = capacidad permite acumular hasta cap_vol al alza desde 0.
+        # Usamos AddDimension (no AddDimensionWithVehicleCapacity) para permitir
+        # cumul inicial en `load_initial`.
+        routing.AddDimension(
+            net_cb_idx,
+            int(cap_vol),                # slack: hasta cap_vol de holgura
+            int(cap_vol),                # capacidad máxima (max cumul)
+            False,                        # no forzar inicio en 0
+            "Ocupacion",
+        )
+        occ_dim = routing.GetDimensionOrDie("Ocupacion")
+        # Ocupación inicial = vol_total cargado en el depot.
+        depot_start = routing.Start(0)
+        occ_dim.CumulVar(depot_start).SetRange(load_initial, load_initial)
+
     params = pywrapcp.DefaultRoutingSearchParameters()
     params.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
     params.local_search_metaheuristic = (
@@ -349,6 +384,7 @@ def build_stops_from_transporte(
     geo_ok = geocoding[geocoding["status"].astype(str).str.startswith("ok")]
     geo_idx = geo_ok.set_index("cliente_id")[["lat", "lng"]]
 
+    import json as _json
     stops: list[Stop] = []
     skipped = 0
     for r in sub.itertuples(index=False):
@@ -360,6 +396,11 @@ def build_stops_from_transporte(
         # (1 palet ~= 2400 L). Mín 8 min, máx 60 min.
         palet_eq = max(0.0, float(r.volumen_total_l) / 2400.0)
         t_serv = max(480, min(3600, int(600 + palet_eq * 120)))
+        mats_raw = getattr(r, "materiales_json", "[]")
+        try:
+            mats = _json.loads(mats_raw) if isinstance(mats_raw, str) else list(mats_raw or [])
+        except (ValueError, TypeError):
+            mats = []
         stops.append(Stop(
             cliente_id=int(r.cliente_id),
             lat=float(lat), lng=float(lng),
@@ -369,7 +410,10 @@ def build_stops_from_transporte(
             tiempo_servicio_s=t_serv,
             cliente_nombre=str(r.cliente_nombre),
             poblacion=str(r.poblacion),
+            cp=str(getattr(r, "cp", "")),
+            zona_dd=str(getattr(r, "zona_dd", "")),
             entrega_id=int(r.entrega_id),
+            materiales=mats,
         ))
     if skipped:
         logger.warning("Transporte {}: {} clientes sin geocoding (saltados)",
