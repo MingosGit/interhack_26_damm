@@ -47,6 +47,13 @@ PALET_LARGO_CM = 120
 PALET_ANCHO_CM = 80
 PALET_ALT_MAX_CM = 200
 
+# Bahía de carga (lonas laterales). Capacidad por bahía calculada como
+# vol_m3 / palets para cada camión. Para 6P/8P viene a salir ~2400 L y ~1100 kg.
+BAHIA_LARGO_CM = 120
+BAHIA_ANCHO_CM = 240   # 2 palets ancho (8x2)
+BAHIA_ALTO_CM = 200
+TRUCK_LOAD_3D_HTML = CACHE_DIR / "truck_3d.html"
+
 UM_RETORNABLES = {"BRL", "BOT", "BID"}
 KEYWORDS_RETORNABLES = ["RET", "RETOR", "BARRIL", "ENVASE", "VACIO"]
 RATIO_RETORNO_DEFECTO = 0.6
@@ -94,3 +101,12 @@ UM_DEFAULT_PESO_KG = {
 
 DEFAULT_VOLUMEN_L = 5.0
 DEFAULT_PESO_KG = 2.0
+
+# Ventanas horarias: jornada laboral por defecto (segundos desde medianoche).
+JORNADA_INICIO_S = 6 * 3600        # 06:00
+JORNADA_FIN_S = 22 * 3600          # 22:00
+JORNADA_DURACION_MAX_S = 10 * 3600 # 10 h máx por chófer
+
+# Códigos "ventana abierta" en Horarios_Entrega (representan "todo el día").
+HORARIO_OPEN_INICIO_S = 0
+HORARIO_OPEN_FIN_S = 23 * 3600 + 59 * 60 + 59

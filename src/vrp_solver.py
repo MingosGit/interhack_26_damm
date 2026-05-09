@@ -1,8 +1,9 @@
-"""Solver VRP base con OR-Tools para los camiones de DDI.
+"""Solver VRP con OR-Tools para los camiones de DDI.
 
-MVP 4: 1 camión, sin ventanas horarias, sin pickup-delivery. Restricción de
-capacidad volumétrica (litros) y de peso (kg). El objetivo es minimizar el
-tiempo total de la ruta (transit + servicio en cada parada).
+- MVP 4: 1 camión, capacidad de volumen + peso, minimizar tiempo total.
+- MVP 5: ventanas horarias (`use_time_windows=True`) con la convención de
+  *service-at-source* (CumulVar(j) = tiempo de **llegada** a j), que es lo que
+  espera la documentación de OR-Tools para VRPTW.
 
 **Heurística**:
 - ``PATH_CHEAPEST_ARC`` como solución inicial: greedy desde el depot, elige el
@@ -14,6 +15,7 @@ tiempo total de la ruta (transit + servicio en cada parada).
 
 Uso:
     python -m src.vrp_solver --transport 11561535 [--time-limit 20] [--truck 6P]
+                              [--time-windows]
 """
 from __future__ import annotations
 
@@ -26,7 +28,7 @@ import pandas as pd
 from loguru import logger
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 
-from src import config, distance_matrix
+from src import config, distance_matrix, horarios as horarios_mod
 from src.exceptions import DammSmartTruckError
 
 
@@ -83,6 +85,29 @@ def _truck_capacity(truck: str) -> tuple[float, float]:
 # Solver principal
 # ---------------------------------------------------------------------------
 
+def _diagnose_infeasible_windows(
+    stops: list[Stop], time_int: np.ndarray, depot_open_s: int
+) -> list[dict]:
+    """Detecta paradas obviamente inalcanzables (necesario, no suficiente).
+
+    Una parada es inalcanzable si el tiempo directo depot→parada+servicio
+    desde la apertura del depósito ya supera su `ventana_fin`.
+    """
+    issues = []
+    for k, s in enumerate(stops, 1):
+        if s.ventana_inicio is None or s.ventana_fin is None:
+            continue
+        earliest_arrival = depot_open_s + int(time_int[0, k])
+        if earliest_arrival > s.ventana_fin:
+            issues.append({
+                "cliente_id": s.cliente_id,
+                "cliente_nombre": s.cliente_nombre,
+                "ventana_fin_s": s.ventana_fin,
+                "earliest_arrival_s": earliest_arrival,
+            })
+    return issues
+
+
 def solve_single_truck(
     stops: list[Stop],
     depot: tuple[float, float],
@@ -95,6 +120,8 @@ def solve_single_truck(
     time_limit_s: int = 20,
     use_time_windows: bool = False,
     use_pickup_delivery: bool = False,
+    depot_open_s: int = config.JORNADA_INICIO_S,
+    depot_close_s: int = config.JORNADA_FIN_S,
 ) -> Solution:
     """Resuelve un VRP de 1 camión con capacidad de volumen y peso.
 
@@ -102,10 +129,14 @@ def solve_single_truck(
     ``0=depot`` y ``1..N`` = paradas en el orden de `stops`. Sus valores deben
     venir ya en segundos y metros enteros (se castean a int).
 
-    `use_time_windows` y `use_pickup_delivery` se ignoran en MVP 4 — se
-    aceptan en la firma para no romper futuros incrementos.
+    Si ``use_time_windows=True``, se aplica la convención *service-at-source*:
+    la dimensión Time mide tiempo absoluto (segundos desde medianoche) y
+    cada CumulVar(j) representa la **hora de llegada** a la parada j. Las
+    ventanas se aplican vía `CumulVar.SetRange`.
+
+    `use_pickup_delivery` queda reservado para MVP 7.
     """
-    del use_time_windows, use_pickup_delivery  # MVP 4: ignorados
+    del use_pickup_delivery  # reservado MVP 7
 
     n_stops = len(stops)
     if n_stops == 0:
@@ -140,26 +171,67 @@ def solve_single_truck(
     cap_vol = int(round(truck_capacity_l))
     cap_kg = int(round(truck_capacity_kg))
 
+    # Si VRPTW activo: pre-diagnóstico de ventanas obviamente inalcanzables.
+    if use_time_windows:
+        unreachable = _diagnose_infeasible_windows(stops, time_int, depot_open_s)
+        if unreachable:
+            logger.warning("Paradas inalcanzables por ventana: {}", len(unreachable))
+            return Solution(
+                ordered_stops=list(stops),
+                total_time_s=0, total_distance_m=0, status="INFEASIBLE",
+                raw_solver_output={"reason": "time_window_unreachable",
+                                   "stops": unreachable},
+            )
+
     manager = pywrapcp.RoutingIndexManager(n_nodes, 1, 0)
     routing = pywrapcp.RoutingModel(manager)
 
-    # ---- coste = tiempo de transit + servicio en destino ----
+    # ---- coste = servicio en origen + tiempo de transit (service-at-source) ----
+    # Con esta convención CumulVar(j) = tiempo de llegada a j.
     def transit_time_cb(from_idx: int, to_idx: int) -> int:
         i = manager.IndexToNode(from_idx)
         j = manager.IndexToNode(to_idx)
-        return int(time_int[i, j]) + service[j]
+        return service[i] + int(time_int[i, j])
 
     transit_cb_idx = routing.RegisterTransitCallback(transit_time_cb)
     routing.SetArcCostEvaluatorOfAllVehicles(transit_cb_idx)
 
-    # Dimensión "Time" sólo para limitar el total de la jornada.
-    routing.AddDimension(
-        transit_cb_idx,
-        0,                    # slack (no necesario sin ventanas)
-        int(max_route_time_s),
-        True,                 # start at zero
-        "Time",
-    )
+    if use_time_windows:
+        # Dimensión absoluta: arranque en [depot_open_s, depot_close_s].
+        # Slack permite esperar antes de un cliente con ventana posterior.
+        max_slack = max(0, depot_close_s - depot_open_s)
+        routing.AddDimension(
+            transit_cb_idx,
+            int(max_slack),
+            int(depot_close_s),
+            False,                  # NO forzar inicio = 0 (queremos absoluto)
+            "Time",
+        )
+        time_dim = routing.GetDimensionOrDie("Time")
+
+        # Ventana del depot.
+        depot_start_index = routing.Start(0)
+        depot_end_index = routing.End(0)
+        time_dim.CumulVar(depot_start_index).SetRange(int(depot_open_s), int(depot_close_s))
+        time_dim.CumulVar(depot_end_index).SetRange(int(depot_open_s), int(depot_close_s))
+
+        # Ventana por parada.
+        for k, s in enumerate(stops, 1):
+            if s.ventana_inicio is None or s.ventana_fin is None:
+                continue
+            idx = manager.NodeToIndex(k)
+            ini = max(int(s.ventana_inicio), int(depot_open_s))
+            fin = min(int(s.ventana_fin), int(depot_close_s))
+            if ini > fin:
+                logger.warning("Ventana del cliente {} colapsada tras intersección con jornada",
+                               s.cliente_id)
+                fin = ini
+            time_dim.CumulVar(idx).SetRange(ini, fin)
+    else:
+        # MVP 4: dimensión Time relativa, sólo para limitar la jornada total.
+        routing.AddDimension(
+            transit_cb_idx, 0, int(max_route_time_s), True, "Time",
+        )
 
     # ---- capacidad de volumen ----
     def demand_vol_cb(from_idx: int) -> int:
@@ -189,31 +261,47 @@ def solve_single_truck(
             ordered_stops=list(stops),
             total_time_s=0, total_distance_m=0,
             status="INFEASIBLE" if or_status == 6 else status_label,
-            raw_solver_output={"or_status": or_status, "label": status_label},
+            raw_solver_output={"or_status": or_status, "label": status_label,
+                               "reason": "no_solution_within_time_limit_or_infeasible"},
         )
 
     # ---- Extraer ruta y métricas ----
     ordered: list[Stop] = []
+    arrivals_s: list[int] = []
     total_time = 0
     total_dist = 0
     index = routing.Start(0)
+    time_dim = routing.GetDimensionOrDie("Time") if use_time_windows else None
+
+    start_time = raw_solution.Min(time_dim.CumulVar(index)) if time_dim else 0
     while not routing.IsEnd(index):
         node = manager.IndexToNode(index)
         if node != 0:
             ordered.append(stops[node - 1])
+            if time_dim is not None:
+                arrivals_s.append(int(raw_solution.Min(time_dim.CumulVar(index))))
         next_index = raw_solution.Value(routing.NextVar(index))
         i = manager.IndexToNode(index)
         j = manager.IndexToNode(next_index)
-        total_time += int(time_int[i, j]) + service[j]
+        total_time += service[i] + int(time_int[i, j])
         total_dist += int(dist_int[i, j])
         index = next_index
+
+    raw_out = {
+        "or_status": or_status,
+        "objective": raw_solution.ObjectiveValue(),
+        "depot_start_s": int(start_time),
+    }
+    if time_dim is not None:
+        raw_out["depot_end_s"] = int(raw_solution.Min(time_dim.CumulVar(index)))
+        raw_out["arrivals_s"] = arrivals_s
 
     return Solution(
         ordered_stops=ordered,
         total_time_s=int(total_time),
         total_distance_m=int(total_dist),
         status="OPTIMAL" if status_label in ("OPTIMAL", "ROUTING_SUCCESS") else status_label,
-        raw_solver_output={"or_status": or_status, "objective": raw_solution.ObjectiveValue()},
+        raw_solver_output=raw_out,
     )
 
 
@@ -290,6 +378,36 @@ def build_stops_from_transporte(
 
 
 # ---------------------------------------------------------------------------
+# Ventanas horarias
+# ---------------------------------------------------------------------------
+
+def attach_time_windows(
+    stops: list[Stop],
+    fecha,                                        # datetime.date or pandas.Timestamp
+    canonical: pd.DataFrame | None = None,
+    horarios: pd.DataFrame | None = None,
+) -> list[Stop]:
+    """Puebla `Stop.ventana_inicio/fin` para los clientes con horario conocido.
+
+    Devuelve la MISMA lista de stops mutada in-place (también la retorna por
+    ergonomía). Loggea el % de match.
+    """
+    if hasattr(fecha, "date"):           # pandas Timestamp
+        fecha = fecha.date()
+    windows = horarios_mod.windows_for_date(fecha, canonical=canonical, horarios=horarios)
+    n_match = 0
+    for s in stops:
+        w = windows.get(int(s.cliente_id))
+        if w is not None:
+            s.ventana_inicio, s.ventana_fin = w
+            n_match += 1
+    if stops:
+        logger.info("Ventanas horarias asignadas: {}/{} ({}%)",
+                    n_match, len(stops), round(100 * n_match / len(stops)))
+    return stops
+
+
+# ---------------------------------------------------------------------------
 # Pipeline end-to-end (CLI)
 # ---------------------------------------------------------------------------
 
@@ -303,6 +421,7 @@ def run_for_transporte(
     transporte_id: int,
     truck: str = "6P",
     time_limit_s: int = 20,
+    use_time_windows: bool = False,
 ) -> dict:
     canonical = pd.read_parquet(config.CANONICAL_PARQUET)
     geo = pd.read_parquet(config.GEOCODING_PARQUET)
@@ -310,6 +429,10 @@ def run_for_transporte(
     stops = build_stops_from_transporte(transporte_id, canonical, geo)
     if not stops:
         raise DammSmartTruckError(f"Transporte {transporte_id} sin paradas geocodificadas")
+
+    fecha = canonical[canonical["transporte"] == transporte_id]["fecha"].iloc[0]
+    if use_time_windows:
+        attach_time_windows(stops, fecha, canonical=canonical)
 
     coords = [(config.DEPOT_LAT, config.DEPOT_LNG)] + [(s.lat, s.lng) for s in stops]
     time_mat, dist_mat = distance_matrix.get_matrix(coords)
@@ -320,6 +443,7 @@ def run_for_transporte(
         stops, (config.DEPOT_LAT, config.DEPOT_LNG),
         cap_l, cap_kg, time_mat, dist_mat,
         time_limit_s=time_limit_s,
+        use_time_windows=use_time_windows,
     )
 
     delta_t = sol.total_time_s - base_time
@@ -338,10 +462,15 @@ def run_for_transporte(
     print(f"\nΔ vs baseline:")
     print(f"  tiempo:    {delta_t:+d} s   ({pct_t:+.2f}%)")
     print(f"  distancia: {delta_d:+d} m   ({pct_d:+.2f}%)")
-    print(f"\nOrden propuesto (cliente_id | nombre | población | volumen_l):")
+    arrivals = sol.raw_solver_output.get("arrivals_s", [])
+    print(f"\nOrden propuesto (cliente_id | nombre | población | volumen_l | hora llegada):")
     for k, s in enumerate(sol.ordered_stops, 1):
-        print(f"  {k:2d}. {s.cliente_id} | {s.cliente_nombre[:30]:30s} | "
-              f"{s.poblacion[:18]:18s} | {s.volumen_l:7.1f} L")
+        win = ""
+        if s.ventana_inicio is not None and s.ventana_fin is not None:
+            win = f" [{_format_hms(s.ventana_inicio)}–{_format_hms(s.ventana_fin)}]"
+        arr = f" llega {_format_hms(arrivals[k-1])}" if k - 1 < len(arrivals) else ""
+        print(f"  {k:2d}. {s.cliente_id} | {s.cliente_nombre[:28]:28s} | "
+              f"{s.poblacion[:16]:16s} | {s.volumen_l:7.1f} L{arr}{win}")
 
     return {
         "transporte": transporte_id,
@@ -360,8 +489,12 @@ def _main() -> None:
     parser.add_argument("--truck", default="6P", choices=list(config.TRUCKS.keys()))
     parser.add_argument("--time-limit", type=int, default=20,
                         help="Segundos de tiempo límite para metaheurística")
+    parser.add_argument("--time-windows", action="store_true",
+                        help="Activa ventanas horarias (Horarios_Entrega)")
     args = parser.parse_args()
-    run_for_transporte(args.transport, truck=args.truck, time_limit_s=args.time_limit)
+    run_for_transporte(args.transport, truck=args.truck,
+                       time_limit_s=args.time_limit,
+                       use_time_windows=args.time_windows)
 
 
 if __name__ == "__main__":
