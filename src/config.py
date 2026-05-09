@@ -17,6 +17,13 @@ DATA_QUALITY_REPORT = CACHE_DIR / "data_quality_report.txt"
 GEOCODING_PARQUET = CACHE_DIR / "geocoding.parquet"
 KPI_COMPARISON_CSV = CACHE_DIR / "kpi_comparison.csv"
 KPI_HISTOGRAM_HTML = CACHE_DIR / "kpi_histogram.html"
+EXPLANATIONS_CACHE_JSON = CACHE_DIR / "explanations.json"
+
+# Groq — explicabilidad NL
+GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_REQUEST_TIMEOUT_S = 8       # corte si el modelo no responde rápido
+GROQ_MAX_TOKENS = 600
+GROQ_TEMPERATURE = 0.3
 GEOCODING_SMOKE_HTML = CACHE_DIR / "geocoding_smoke.html"
 DISTANCE_MATRIX_PARQUET = CACHE_DIR / "distance_matrix.parquet"
 

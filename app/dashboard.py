@@ -29,6 +29,7 @@ if str(ROOT) not in sys.path:
 from src import (                                          # noqa: E402
     config,
     distance_matrix,
+    explain as explain_mod,
     kpis,
     packer,
     reverse_logistics as rl,
@@ -238,13 +239,38 @@ def _page_optimizar():
     use_pd = c3.checkbox("Optimizar logística inversa (pickup)", value=True)
     time_limit = st.slider("Tiempo límite del solver (s)", 5, 60, 15)
 
+    run_sig = (int(transp_sel), truck, bool(use_tw), bool(use_pd), int(time_limit))
     if st.button("🚀 Optimizar", type="primary", use_container_width=True):
-        _run_optimization(canonical, geocoding, transp_sel, truck,
-                          use_tw, use_pd, time_limit)
+        result = _compute_optimization(canonical, geocoding, transp_sel, truck,
+                                        use_tw, use_pd, time_limit)
+        if result is not None:
+            result["sig"] = run_sig
+            st.session_state["last_run"] = result
+            # Limpio explicaciones previas: pertenecen a otra ruta.
+            for k in ("exp_route", "exp_load", "exp_cmp"):
+                st.session_state.pop(k, None)
+
+    # Render persistente: cualquier rerun (botón Groq, slider, etc.) re-pinta
+    # los tabs a partir de `last_run`, así no se borra nada al pulsar otro
+    # botón. Si la signature actual difiere del último run, se avisa.
+    last = st.session_state.get("last_run")
+    if last is None:
+        st.info("Pulsa **Optimizar** para calcular la ruta y la carga.")
+        return
+
+    if last.get("sig") != run_sig:
+        st.warning(
+            "Has cambiado la selección. La vista corresponde a la última "
+            "optimización ejecutada — pulsa **Optimizar** para recalcular."
+        )
+
+    _render_optimization_tabs(last)
 
 
-def _run_optimization(canonical, geocoding, transp_id, truck,
-                      use_tw, use_pd, time_limit):
+def _compute_optimization(canonical, geocoding, transp_id, truck,
+                           use_tw, use_pd, time_limit) -> dict | None:
+    """Ejecuta solver + packer + perfil de retornos. Devuelve un dict
+    serializable en session_state, o None si hay error fatal."""
     with st.spinner("Construyendo paradas y calculando matriz…"):
         try:
             stops = vrp_solver.build_stops_from_transporte(
@@ -252,11 +278,11 @@ def _run_optimization(canonical, geocoding, transp_id, truck,
             )
         except Exception as exc:                            # noqa: BLE001
             st.error(f"Error al construir paradas: {exc}")
-            return
+            return None
 
         if not stops:
             st.warning("No hay clientes geocodificados en este transporte.")
-            return
+            return None
 
         if use_tw:
             fecha = canonical[canonical["transporte"] == transp_id]["fecha"].iloc[0]
@@ -279,7 +305,7 @@ def _run_optimization(canonical, geocoding, transp_id, truck,
 
     if sol.status == "INFEASIBLE":
         st.error(f"Sin solución factible: {sol.raw_solver_output}")
-        return
+        return None
 
     with st.spinner("Empaquetando bahías y perfil temporal…"):
         try:
@@ -290,29 +316,56 @@ def _run_optimization(canonical, geocoding, transp_id, truck,
         profile = rl.temporal_volume_profile(sol.ordered_stops, cap_l)
         kpi_ret = rl.returns_kpi(profile, sol.ordered_stops)
 
-    # --------------------- pestañas de salida ---------------------
+    return {
+        "transp_id": int(transp_id),
+        "truck": truck,
+        "stops": stops,
+        "sol": sol,
+        "load": load,
+        "profile": profile,
+        "kpi_ret": kpi_ret,
+        "base_t": int(base_t),
+        "base_d": int(base_d),
+        "cap_l": float(cap_l),
+    }
+
+
+def _render_optimization_tabs(run: dict) -> None:
+    """Render de los 5 tabs a partir del último run cacheado."""
+    sol = run["sol"]
+    load = run["load"]
+    profile = run["profile"]
+    kpi_ret = run["kpi_ret"]
+    base_t = run["base_t"]
+    base_d = run["base_d"]
+    cap_l = run["cap_l"]
+    truck = run["truck"]
+
     tab_map, tab_3d, tab_table, tab_cmp, tab_explain = st.tabs(
         ["🗺️ Mapa", "📦 Camión 3D", "📋 Tabla", "📊 Comparación", "💬 Explicación"]
     )
 
     with tab_map:
-        m = _build_route_map(stops, sol.ordered_stops,
+        m = _build_route_map(run["stops"], sol.ordered_stops,
                               (config.DEPOT_LAT, config.DEPOT_LNG))
-        st_folium(m, height=600, width=None, returned_objects=[])
+        st_folium(m, height=600, width=None, returned_objects=[],
+                  key=f"map_{run['transp_id']}")
 
     with tab_3d:
         if load is None:
             st.info("No se pudo construir el packing.")
         else:
             fig = packer.to_3d_visualization(load)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True,
+                            key=f"3d_{run['transp_id']}")
             st.caption(
                 f"Coherencia cliente = {load.coherencia_cliente:.2f} · "
                 f"ocupación {100 * load.vol_total_l / cap_l:.0f}% del camión {truck}"
             )
         st.markdown("**Perfil temporal de ocupación + retornos:**")
         st.plotly_chart(rl.plot_temporal_profile(profile),
-                        use_container_width=True)
+                        use_container_width=True,
+                        key=f"profile_{run['transp_id']}")
 
     with tab_table:
         arrivals = sol.raw_solver_output.get("arrivals_s", [])
@@ -364,28 +417,57 @@ def _run_optimization(canonical, geocoding, transp_id, truck,
             )
 
     with tab_explain:
-        st.info(
-            "La generación automática de explicaciones (Groq Llama 3.3) "
-            "se entrega en MVP 10. Por ahora un resumen de fallback:"
-        )
-        st.markdown(_explanation_fallback(sol, load, kpi_ret, base_t, base_d, truck))
+        api_ok = bool(__import__("os").environ.get("GROQ_API_KEY"))
+        if not api_ok:
+            st.warning(
+                "Sin `GROQ_API_KEY` — se usará la explicación de fallback "
+                "(template). Define la variable de entorno o ponla en `.env`."
+            )
 
+        st.markdown("### 🛣️ Sobre la ruta")
+        if st.button("Generar / refrescar explicación de la ruta",
+                      key="exp_route_btn"):
+            with st.spinner("Llamando a Groq…"):
+                st.session_state["exp_route"] = explain_mod.explain_route(
+                    sol, baseline={"dist_m": base_d, "time_s": base_t},
+                )
+        if "exp_route" in st.session_state:
+            st.write(st.session_state["exp_route"])
 
-def _explanation_fallback(sol, load, kpi_ret, base_t, base_d, truck) -> str:
-    n = len(sol.ordered_stops)
-    delta_d = 100 * (sol.total_distance_m - base_d) / base_d if base_d else 0.0
-    delta_t = 100 * (sol.total_time_s - base_t) / base_t if base_t else 0.0
-    coh = load.coherencia_cliente if load else None
-    return (
-        f"- Ruta de **{n} paradas** en camión {truck}, "
-        f"resuelta con OR-Tools (PATH_CHEAPEST_ARC + Guided Local Search).\n"
-        f"- Tiempo total **{delta_t:+.1f}%** vs orden real, "
-        f"distancia **{delta_d:+.1f}%**.\n"
-        f"- Retornos recogidos: **{100*kpi_ret.pct_recogido:.0f}%** del esperado.\n"
-        + (f"- Coherencia de carga por cliente: **{coh:.2f}** — los clientes con "
-           f"varias entregas quedan en bahías contiguas.\n" if coh is not None else "")
-        + "- El packing respeta el orden inverso de descarga (cliente 1 → bahía 0)."
-    )
+        st.markdown("### 📦 Sobre la carga")
+        if st.button("Generar / refrescar explicación de la carga",
+                      key="exp_load_btn", disabled=load is None):
+            with st.spinner("Llamando a Groq…"):
+                st.session_state["exp_load"] = explain_mod.explain_loading(
+                    load, sol.ordered_stops,
+                )
+        if "exp_load" in st.session_state:
+            st.write(st.session_state["exp_load"])
+
+        st.markdown("### ⚖️ Trade-offs vs baseline")
+        if st.button("Generar / refrescar trade-offs", key="exp_cmp_btn"):
+            from src.kpis import KPIComparison
+            opt_pct = float(min(1.0, kpi_ret.pct_recogido))
+            cmp_obj = KPIComparison(
+                transporte_id=run["transp_id"], fecha=None,
+                n_paradas=len(sol.ordered_stops),
+                real_distancia_m=base_d, real_tiempo_s=base_t,
+                real_n_movimientos_descarga=0,
+                real_pct_retornables_recogidos=0.75,
+                opt_distancia_m=sol.total_distance_m,
+                opt_tiempo_s=sol.total_time_s,
+                opt_n_movimientos_descarga=0,
+                opt_pct_retornables_recogidos=opt_pct,
+                delta_distancia_pct=100*(sol.total_distance_m-base_d)/base_d if base_d else 0,
+                delta_tiempo_pct=100*(sol.total_time_s-base_t)/base_t if base_t else 0,
+                delta_movimientos_pct=0.0,
+                delta_retornables_pp=round(100*opt_pct - 75, 2),
+                status=sol.status,
+            )
+            with st.spinner("Llamando a Groq…"):
+                st.session_state["exp_cmp"] = explain_mod.explain_tradeoffs(cmp_obj)
+        if "exp_cmp" in st.session_state:
+            st.write(st.session_state["exp_cmp"])
 
 
 # ===========================================================================
