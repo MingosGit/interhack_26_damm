@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/pip install *)",
+      "Bash(.venv/bin/python -c \"import pandas, openpyxl, pyarrow, loguru, pytest; print\\('OK', pandas.__version__\\)\")",
+      "Bash(.venv/bin/python)",
+      "Bash(.venv/bin/python -m src.etl)",
+      "Bash(.venv/bin/python -m pytest tests/ -v)"
+    ]
+  }
+}
