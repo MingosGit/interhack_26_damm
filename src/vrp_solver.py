@@ -61,6 +61,18 @@ class Solution:
     raw_solver_output: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass
+class FleetSolution:
+    """Resultado de optimizar una flota de múltiples camiones (CVRP)."""
+    routes: list[list[Stop]]                 # Una lista de paradas por camión
+    route_metrics: list[dict]                # Métricas por ruta: time_s, distance_m
+    total_time_s: int                        # Suma de tiempos de todas las rutas
+    total_distance_m: int                    # Suma de distancias de todas las rutas
+    status: str                              # "OPTIMAL" | "FEASIBLE" | "INFEASIBLE"
+    n_vehicles_used: int                     # Camiones realmente asignados (puede ser < n_vehicles)
+    raw_solver_output: dict[str, Any] = field(default_factory=dict)
+
+
 _OR_STATUS = {
     0: "ROUTING_NOT_SOLVED",
     1: "OPTIMAL",                   # ROUTING_SUCCESS
@@ -305,6 +317,243 @@ def solve_single_truck(
     )
 
 
+def solve_fleet(
+    stops: list[Stop],
+    depot: tuple[float, float],
+    n_vehicles: int,
+    truck_capacity_l: float,
+    truck_capacity_kg: float,
+    time_matrix_s: np.ndarray,
+    dist_matrix_m: np.ndarray,
+    *,
+    max_route_time_s: int = 8 * 3600,
+    time_limit_s: int = 20,
+    use_time_windows: bool = False,
+    depot_open_s: int = config.JORNADA_INICIO_S,
+    depot_close_s: int = config.JORNADA_FIN_S,
+) -> FleetSolution:
+    """Resuelve un CVRP (Capacitated Vehicle Routing Problem) multi-camión.
+
+    Todos los clientes deben entrar en la solución; se reparten entre n_vehicles
+    camiones de igual capacidad. Mantiene todas las restricciones de capacidad
+    (volumen + peso) y ventanas horarias de `solve_single_truck`.
+
+    Retorna `FleetSolution` con:
+    - `routes`: list[list[Stop]] — una ruta (lista de paradas) por camión
+    - `route_metrics`: métricas por ruta (time_s, distance_m)
+    - `total_time_s`, `total_distance_m`: suma agregada
+    - `n_vehicles_used`: cuántos camiones se usaron realmente
+    - `status`: "OPTIMAL", "FEASIBLE", o "INFEASIBLE"
+    """
+    n_stops = len(stops)
+    if n_stops == 0:
+        return FleetSolution([], [], 0, 0, "OPTIMAL", 0, {"trivial": "empty"})
+
+    # Sanity check: capacidad total vs suma de demandas
+    total_vol = sum(s.volumen_l for s in stops)
+    total_peso = sum(s.peso_kg for s in stops)
+    fleet_cap_vol = n_vehicles * truck_capacity_l
+    fleet_cap_kg = n_vehicles * truck_capacity_kg
+    if total_vol > fleet_cap_vol or total_peso > fleet_cap_kg:
+        logger.warning(
+            "Capacidad de flota excedida: vol={:.1f}L vs {:.1f}L | peso={:.1f}kg vs {:.1f}kg",
+            total_vol, fleet_cap_vol, total_peso, fleet_cap_kg
+        )
+        return FleetSolution(
+            routes=[],
+            route_metrics=[],
+            total_time_s=0, total_distance_m=0,
+            status="INFEASIBLE",
+            n_vehicles_used=n_vehicles,
+            raw_solver_output={
+                "reason": "fleet_capacity_overflow",
+                "total_vol_l": total_vol, "total_peso_kg": total_peso,
+                "fleet_cap_vol_l": fleet_cap_vol, "fleet_cap_kg": fleet_cap_kg,
+            },
+        )
+
+    n_nodes = n_stops + 1  # 0 = depot
+    if time_matrix_s.shape != (n_nodes, n_nodes) or dist_matrix_m.shape != (n_nodes, n_nodes):
+        raise DammSmartTruckError(
+            f"Dimensiones inesperadas: time={time_matrix_s.shape}, "
+            f"dist={dist_matrix_m.shape}, esperaba ({n_nodes},{n_nodes})"
+        )
+
+    # Pre-cast a int para OR-Tools
+    time_int = np.rint(time_matrix_s).astype(np.int64)
+    dist_int = np.rint(dist_matrix_m).astype(np.int64)
+    service = [0] + [int(s.tiempo_servicio_s) for s in stops]
+    demand_vol = [0] + [int(round(s.volumen_l)) for s in stops]
+    demand_kg = [0] + [int(round(s.peso_kg)) for s in stops]
+    cap_vol = int(round(truck_capacity_l))
+    cap_kg = int(round(truck_capacity_kg))
+
+    # Pre-diagnóstico para ventanas inalcanzables (igual que single_truck)
+    if use_time_windows:
+        unreachable = _diagnose_infeasible_windows(stops, time_int, depot_open_s)
+        if unreachable:
+            logger.warning("Paradas inalcanzables por ventana: {}", len(unreachable))
+            return FleetSolution(
+                routes=[],
+                route_metrics=[],
+                total_time_s=0, total_distance_m=0,
+                status="INFEASIBLE",
+                n_vehicles_used=n_vehicles,
+                raw_solver_output={"reason": "time_window_unreachable", "stops": unreachable},
+            )
+
+    # ---- Crear manager con n_vehicles vehículos ----
+    manager = pywrapcp.RoutingIndexManager(n_nodes, n_vehicles, 0)  # depot at 0
+    routing = pywrapcp.RoutingModel(manager)
+
+    # ---- Callback de tiempo (service-at-source como en single_truck) ----
+    def transit_time_cb(from_idx: int, to_idx: int) -> int:
+        i = manager.IndexToNode(from_idx)
+        j = manager.IndexToNode(to_idx)
+        return service[i] + int(time_int[i, j])
+
+    transit_cb_idx = routing.RegisterTransitCallback(transit_time_cb)
+    routing.SetArcCostEvaluatorOfAllVehicles(transit_cb_idx)
+
+    # ---- Dimensión de tiempo ----
+    if use_time_windows:
+        max_slack = max(0, depot_close_s - depot_open_s)
+        routing.AddDimension(
+            transit_cb_idx,
+            int(max_slack),
+            int(depot_close_s),
+            False,
+            "Time",
+        )
+        time_dim = routing.GetDimensionOrDie("Time")
+
+        # Ventana del depot para cada vehículo
+        for v in range(n_vehicles):
+            depot_start_index = routing.Start(v)
+            depot_end_index = routing.End(v)
+            time_dim.CumulVar(depot_start_index).SetRange(int(depot_open_s), int(depot_close_s))
+            time_dim.CumulVar(depot_end_index).SetRange(int(depot_open_s), int(depot_close_s))
+
+        # Ventana por parada (igual para todos los vehículos)
+        for k, s in enumerate(stops, 1):
+            if s.ventana_inicio is None or s.ventana_fin is None:
+                continue
+            idx = manager.NodeToIndex(k)
+            ini = max(int(s.ventana_inicio), int(depot_open_s))
+            fin = min(int(s.ventana_fin), int(depot_close_s))
+            if ini > fin:
+                logger.warning("Ventana del cliente {} colapsada", s.cliente_id)
+                fin = ini
+            time_dim.CumulVar(idx).SetRange(ini, fin)
+    else:
+        # Dimensión Time relativa para limitar tiempo máximo por ruta
+        routing.AddDimension(
+            transit_cb_idx, 0, int(max_route_time_s), True, "Time",
+        )
+
+    # ---- Capacidad de volumen ----
+    def demand_vol_cb(from_idx: int) -> int:
+        return demand_vol[manager.IndexToNode(from_idx)]
+    vol_cb_idx = routing.RegisterUnaryTransitCallback(demand_vol_cb)
+    # Capacidades por vehículo (todos iguales para CVRP estándar)
+    routing.AddDimensionWithVehicleCapacity(
+        vol_cb_idx, 0, [cap_vol] * n_vehicles, True, "Volumen"
+    )
+
+    # ---- Capacidad de peso ----
+    def demand_kg_cb(from_idx: int) -> int:
+        return demand_kg[manager.IndexToNode(from_idx)]
+    kg_cb_idx = routing.RegisterUnaryTransitCallback(demand_kg_cb)
+    routing.AddDimensionWithVehicleCapacity(
+        kg_cb_idx, 0, [cap_kg] * n_vehicles, True, "Peso"
+    )
+
+    # ---- Parámetros de búsqueda ----
+    params = pywrapcp.DefaultRoutingSearchParameters()
+    params.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+    params.local_search_metaheuristic = (
+        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+    )
+    params.time_limit.seconds = int(time_limit_s)
+
+    raw_solution = routing.SolveWithParameters(params)
+    or_status = routing.status()
+    status_label = _OR_STATUS.get(or_status, f"UNKNOWN({or_status})")
+
+    if raw_solution is None:
+        return FleetSolution(
+            routes=[],
+            route_metrics=[],
+            total_time_s=0, total_distance_m=0,
+            status="INFEASIBLE" if or_status == 6 else status_label,
+            n_vehicles_used=0,
+            raw_solver_output={
+                "or_status": or_status, "label": status_label,
+                "reason": "no_solution_within_time_limit_or_infeasible"
+            },
+        )
+
+    # ---- Extraer rutas por vehículo ----
+    routes: list[list[Stop]] = []
+    route_metrics: list[dict] = []
+    total_time_all = 0
+    total_dist_all = 0
+    time_dim = routing.GetDimensionOrDie("Time") if use_time_windows else None
+
+    for v in range(n_vehicles):
+        route_stops: list[Stop] = []
+        route_arrivals: list[int] = []
+        route_time = 0
+        route_dist = 0
+
+        index = routing.Start(v)
+        start_time = raw_solution.Min(time_dim.CumulVar(index)) if time_dim else 0
+
+        while not routing.IsEnd(index):
+            node = manager.IndexToNode(index)
+            if node != 0:
+                route_stops.append(stops[node - 1])
+                if time_dim is not None:
+                    route_arrivals.append(int(raw_solution.Min(time_dim.CumulVar(index))))
+
+            next_index = raw_solution.Value(routing.NextVar(index))
+            i = manager.IndexToNode(index)
+            j = manager.IndexToNode(next_index)
+            route_time += service[i] + int(time_int[i, j])
+            route_dist += int(dist_int[i, j])
+            index = next_index
+
+        # Solo agregar ruta si tiene paradas
+        if route_stops:
+            routes.append(route_stops)
+            route_metrics.append({
+                "vehicle": v,
+                "time_s": int(route_time),
+                "distance_m": int(route_dist),
+                "n_stops": len(route_stops),
+                "arrivals_s": route_arrivals,
+                "start_time_s": int(start_time),
+            })
+            total_time_all += route_time
+            total_dist_all += route_dist
+
+    n_vehicles_used = len(routes)
+    return FleetSolution(
+        routes=routes,
+        route_metrics=route_metrics,
+        total_time_s=int(total_time_all),
+        total_distance_m=int(total_dist_all),
+        status="OPTIMAL" if status_label in ("OPTIMAL", "ROUTING_SUCCESS") else status_label,
+        n_vehicles_used=n_vehicles_used,
+        raw_solver_output={
+            "or_status": or_status,
+            "objective": raw_solution.ObjectiveValue(),
+            "n_vehicles_requested": n_vehicles,
+            "n_vehicles_used": n_vehicles_used,
+        },
+    )
+
+
 # ---------------------------------------------------------------------------
 # Métricas baseline (orden real del dataset)
 # ---------------------------------------------------------------------------
@@ -482,19 +731,120 @@ def run_for_transporte(
     }
 
 
+def run_for_fleet(
+    transporte_id: int,
+    n_vehicles: int,
+    truck: str = "6P",
+    time_limit_s: int = 20,
+    use_time_windows: bool = False,
+) -> dict:
+    """Ejecuta solve_fleet para un transporte, usando n_vehicles camiones.
+
+    Similar a `run_for_transporte` pero divide los clientes automáticamente entre
+    múltiples vehículos en lugar de forzar todo en uno.
+    """
+    canonical = pd.read_parquet(config.CANONICAL_PARQUET)
+    geo = pd.read_parquet(config.GEOCODING_PARQUET)
+
+    stops = build_stops_from_transporte(transporte_id, canonical, geo)
+    if not stops:
+        raise DammSmartTruckError(f"Transporte {transporte_id} sin paradas geocodificadas")
+
+    fecha = canonical[canonical["transporte"] == transporte_id]["fecha"].iloc[0]
+    if use_time_windows:
+        attach_time_windows(stops, fecha, canonical=canonical)
+
+    coords = [(config.DEPOT_LAT, config.DEPOT_LNG)] + [(s.lat, s.lng) for s in stops]
+    time_mat, dist_mat = distance_matrix.get_matrix(coords)
+
+    cap_l, cap_kg = _truck_capacity(truck)
+    base_time, base_dist = baseline_metrics(stops, time_mat, dist_mat)
+    sol = solve_fleet(
+        stops, (config.DEPOT_LAT, config.DEPOT_LNG),
+        n_vehicles,
+        cap_l, cap_kg, time_mat, dist_mat,
+        time_limit_s=time_limit_s,
+        use_time_windows=use_time_windows,
+    )
+
+    delta_t = sol.total_time_s - base_time
+    delta_d = sol.total_distance_m - base_dist
+    pct_t = 100 * delta_t / base_time if base_time else 0.0
+    pct_d = 100 * delta_d / base_dist if base_dist else 0.0
+
+    print(f"\n{'='*80}")
+    print(f"Transporte {transporte_id} | Flota de {n_vehicles} camiones ({truck})")
+    print(f"{len(stops)} paradas totales | Status: {sol.status}")
+    print(f"{'='*80}")
+
+    print(f"\nBaseline (orden real, sin optimizar):")
+    print(f"  tiempo:    {_format_hms(base_time)}  ({base_time} s)")
+    print(f"  distancia: {base_dist/1000:8.2f} km")
+
+    print(f"\nOptimizado (CVRP, {sol.n_vehicles_used} vehículos usados):")
+    print(f"  tiempo:    {_format_hms(sol.total_time_s)}  ({sol.total_time_s} s)")
+    print(f"  distancia: {sol.total_distance_m/1000:8.2f} km")
+
+    print(f"\nΔ vs baseline:")
+    print(f"  tiempo:    {delta_t:+d} s   ({pct_t:+.2f}%)")
+    print(f"  distancia: {delta_d:+d} m   ({pct_d:+.2f}%)")
+
+    print(f"\n{'-'*80}")
+    print("Rutas por vehículo:")
+    print(f"{'-'*80}")
+
+    for vehicle_idx, (route_stops, metrics) in enumerate(zip(sol.routes, sol.route_metrics)):
+        arrivals = metrics.get("arrivals_s", [])
+        print(f"\nVehículo {vehicle_idx + 1}:")
+        print(f"  Paradas: {metrics['n_stops']}")
+        print(f"  Tiempo:  {_format_hms(metrics['time_s'])}  ({metrics['time_s']} s)")
+        print(f"  Distancia: {metrics['distance_m']/1000:8.2f} km")
+
+        vol_total = sum(s.volumen_l for s in route_stops)
+        kg_total = sum(s.peso_kg for s in route_stops)
+        cap_status_vol = f"{vol_total:.0f}/{cap_l:.0f}L"
+        cap_status_kg = f"{kg_total:.0f}/{cap_kg:.0f}kg"
+        print(f"  Carga:   {cap_status_vol:>15} vol  |  {cap_status_kg:>15} peso")
+
+        print(f"  Clientes (id | nombre | población | volumen):")
+        for k, s in enumerate(route_stops, 1):
+            arr = f" llega {_format_hms(arrivals[k-1])}" if k - 1 < len(arrivals) else ""
+            print(f"    {k:2d}. {s.cliente_id} | {s.cliente_nombre[:24]:24s} | "
+                  f"{s.poblacion[:12]:12s} | {s.volumen_l:7.1f} L{arr}")
+
+    return {
+        "transporte": transporte_id,
+        "n_stops": len(stops),
+        "n_vehicles_requested": n_vehicles,
+        "n_vehicles_used": sol.n_vehicles_used,
+        "baseline_time_s": base_time, "baseline_dist_m": base_dist,
+        "opt_time_s": sol.total_time_s, "opt_dist_m": sol.total_distance_m,
+        "delta_time_pct": pct_t, "delta_dist_pct": pct_d,
+        "status": sol.status,
+        "routes_count": len(sol.routes),
+    }
+
+
 def _main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--transport", type=int, required=True,
                         help="ID de transporte (e.g. 11561535)")
+    parser.add_argument("--fleet", type=int, default=None,
+                        help="Número de vehículos (activa solve_fleet en lugar de solve_single_truck)")
     parser.add_argument("--truck", default="6P", choices=list(config.TRUCKS.keys()))
     parser.add_argument("--time-limit", type=int, default=20,
                         help="Segundos de tiempo límite para metaheurística")
     parser.add_argument("--time-windows", action="store_true",
                         help="Activa ventanas horarias (Horarios_Entrega)")
     args = parser.parse_args()
-    run_for_transporte(args.transport, truck=args.truck,
-                       time_limit_s=args.time_limit,
-                       use_time_windows=args.time_windows)
+
+    if args.fleet is not None:
+        run_for_fleet(args.transport, n_vehicles=args.fleet, truck=args.truck,
+                      time_limit_s=args.time_limit, use_time_windows=args.time_windows)
+    else:
+        run_for_transporte(args.transport, truck=args.truck,
+                           time_limit_s=args.time_limit,
+                           use_time_windows=args.time_windows)
 
 
 if __name__ == "__main__":
