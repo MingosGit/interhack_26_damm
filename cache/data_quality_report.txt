@@ -1,0 +1,54 @@
+DATA QUALITY REPORT — canonical.parquet
+============================================================
+Líneas de Detalle entrega procesadas: 82849
+Entregas únicas (filas en canonical): 8927
+Transportes únicos: 889
+Clientes únicos: 1203
+Rutas únicas: 18
+Rango fechas: 2026-01-30 → 2026-03-31
+
+Cobertura volumétrica (sobre líneas raw):
+  match directo ZM040 (Volumen > 0):  59.56%
+  match directo + escalado vía Contador:  61.76%
+  default por UMA:  38.24%
+
+Top UMAs sin dimensiones reales (resueltas por default):
+  CAJ    24029
+  UN     3468
+  BRL    3382
+  PAK    331
+  TB     279
+  EST    114
+  BOT    65
+  ZPR    8
+  PQ     8
+
+Volumen total agregado (litros): 4,289,330
+Peso total agregado (kg): 2,978,237
+Volumen retornable agregado (litros): 2,790,117
+Ratio retornable global: 65.05%
+
+Distribución pct_retornable por entrega:
+count    8927.000000
+mean        0.563492
+std         0.388212
+min         0.000000
+25%         0.080268
+50%         0.704225
+75%         0.918831
+max         1.000000
+
+Muestra de pares (material, uma) sin dimensiones (top 20):
+  CJ13       CAJ
+  3ENV0236   CAJ
+  3ENV0060   CAJ
+  3ENV0041   CAJ
+  3ENV0054   CAJ
+  0AM5389    UN
+  0AM5394    UN
+  3ENV1281   CAJ
+  CJ15       CAJ
+  BRL30V     BRL
+  0LM2486    UN
+  0LM2496    UN
+  1PLV0756   CAJ

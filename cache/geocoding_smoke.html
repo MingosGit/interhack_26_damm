@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_4066a6ef190f76b62e526fdc741c28fb {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_4066a6ef190f76b62e526fdc741c28fb" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_4066a6ef190f76b62e526fdc741c28fb = L.map(
+                "map_4066a6ef190f76b62e526fdc741c28fb",
+                {
+                    center: [41.5408, 2.2128],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 10,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_35b3570255985b52aa9bcae73ed2c796 = L.tileLayer(
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_35b3570255985b52aa9bcae73ed2c796.addTo(map_4066a6ef190f76b62e526fdc741c28fb);
+        
+    
+            var marker_f34a3caba8a26b7e00eff6a613c7e59d = L.marker(
+                [41.5408, 2.2128],
+                {
+}
+            ).addTo(map_4066a6ef190f76b62e526fdc741c28fb);
+        
+    
+            var icon_492869e6981d15f5f5f71207d71832cc = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "red",
+  "iconColor": "white",
+  "icon": "industry",
+  "prefix": "fa",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+            marker_f34a3caba8a26b7e00eff6a613c7e59d.bindTooltip(
+                `<div>
+                     DDI Mollet del Vallès
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_f34a3caba8a26b7e00eff6a613c7e59d.setIcon(icon_492869e6981d15f5f5f71207d71832cc);
+            
+    
+            var marker_1c791cdb0810686992d1e1be40a447db = L.marker(
+                [41.5397151, 2.2137043],
+                {
+}
+            ).addTo(map_4066a6ef190f76b62e526fdc741c28fb);
+        
+    
+        var popup_8d170b9e277b3b19ef5eed96b47482b4 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_e8001d8387f79bf490d534f4cb3a1172 = $(`<div id="html_e8001d8387f79bf490d534f4cb3a1172" style="width: 100.0%; height: 100.0%;">08100 MOLLET DEL VALLES, Catalunya, España<br>status=ok_cp_fallback</div>`)[0];
+                popup_8d170b9e277b3b19ef5eed96b47482b4.setContent(html_e8001d8387f79bf490d534f4cb3a1172);
+            
+        
+
+        marker_1c791cdb0810686992d1e1be40a447db.bindPopup(popup_8d170b9e277b3b19ef5eed96b47482b4)
+        ;
+
+        
+    
+    
+            marker_1c791cdb0810686992d1e1be40a447db.bindTooltip(
+                `<div>
+                     JULIS BAR (9100055707)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_00a2d051aa89149c4a650a7e5bc54ac9 = L.marker(
+                [41.6039827, 2.2910511],
+                {
+}
+            ).addTo(map_4066a6ef190f76b62e526fdc741c28fb);
+        
+    
+        var popup_fee7077a21c84a144b85f963408e50cd = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_d26b9723f7d87798ee197f76926b66bf = $(`<div id="html_d26b9723f7d87798ee197f76926b66bf" style="width: 100.0%; height: 100.0%;">08402 GRANOLLERS, Catalunya, España<br>status=ok_cp_fallback</div>`)[0];
+                popup_fee7077a21c84a144b85f963408e50cd.setContent(html_d26b9723f7d87798ee197f76926b66bf);
+            
+        
+
+        marker_00a2d051aa89149c4a650a7e5bc54ac9.bindPopup(popup_fee7077a21c84a144b85f963408e50cd)
+        ;
+
+        
+    
+    
+            marker_00a2d051aa89149c4a650a7e5bc54ac9.bindTooltip(
+                `<div>
+                     GRANA BAR BY DUMAS (9100630014)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_1d46c292393f05b309ffb36c9a70d436 = L.marker(
+                [42.0471683, 2.2641688],
+                {
+}
+            ).addTo(map_4066a6ef190f76b62e526fdc741c28fb);
+        
+    
+        var popup_db2a953ac4a35bd54fca43800c7ef2eb = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_02f3147b4fd57850a34536746fa6a26d = $(`<div id="html_02f3147b4fd57850a34536746fa6a26d" style="width: 100.0%; height: 100.0%;">08570 TORELLÓ, Catalunya, España<br>status=ok_cp_fallback</div>`)[0];
+                popup_db2a953ac4a35bd54fca43800c7ef2eb.setContent(html_02f3147b4fd57850a34536746fa6a26d);
+            
+        
+
+        marker_1d46c292393f05b309ffb36c9a70d436.bindPopup(popup_db2a953ac4a35bd54fca43800c7ef2eb)
+        ;
+
+        
+    
+    
+            marker_1d46c292393f05b309ffb36c9a70d436.bindTooltip(
+                `<div>
+                     Latitud 42 (9100687352)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_c39a38216fd1a0e6bce4985418d6f151 = L.marker(
+                [41.5597147, 2.2223214],
+                {
+}
+            ).addTo(map_4066a6ef190f76b62e526fdc741c28fb);
+        
+    
+        var popup_f0768812ff05222a57bf842442a40575 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_2671914ea1230eee5f5883efbba1e8c6 = $(`<div id="html_2671914ea1230eee5f5883efbba1e8c6" style="width: 100.0%; height: 100.0%;">08150 PARETS DEL VALLES, Catalunya, España<br>status=ok_cp_fallback</div>`)[0];
+                popup_f0768812ff05222a57bf842442a40575.setContent(html_2671914ea1230eee5f5883efbba1e8c6);
+            
+        
+
+        marker_c39a38216fd1a0e6bce4985418d6f151.bindPopup(popup_f0768812ff05222a57bf842442a40575)
+        ;
+
+        
+    
+    
+            marker_c39a38216fd1a0e6bce4985418d6f151.bindTooltip(
+                `<div>
+                     RESTAURANT BRUNCH (9100733969)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_6f5c5e653a3dad84aaf56250a569d194 = L.marker(
+                [42.0463541, 2.2624909],
+                {
+}
+            ).addTo(map_4066a6ef190f76b62e526fdc741c28fb);
+        
+    
+        var popup_4e3de8a06ce25b958a6c62bf30d49145 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_017e0b641f97f9dbbc59e5a82ebdcb6e = $(`<div id="html_017e0b641f97f9dbbc59e5a82ebdcb6e" style="width: 100.0%; height: 100.0%;">Carrer De Sant Feliu 19, 08570 TORELLÓ, Catalunya, España<br>status=ok</div>`)[0];
+                popup_4e3de8a06ce25b958a6c62bf30d49145.setContent(html_017e0b641f97f9dbbc59e5a82ebdcb6e);
+            
+        
+
+        marker_6f5c5e653a3dad84aaf56250a569d194.bindPopup(popup_4e3de8a06ce25b958a6c62bf30d49145)
+        ;
+
+        
+    
+    
+            marker_6f5c5e653a3dad84aaf56250a569d194.bindTooltip(
+                `<div>
+                     LA TAVERNA (9100056988)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+</script>
+</html>
