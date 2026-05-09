@@ -15,7 +15,16 @@ import sys
 from datetime import date as _date
 from pathlib import Path
 
-import folium
+try:
+    import folium
+except Exception:  # pragma: no cover - allow editor/linters when folium not installed
+    # Lightweight stub so tools that only lint imports don't fail.
+    from types import SimpleNamespace
+
+    def _stub(*args, **kwargs):
+        return None
+
+    folium = SimpleNamespace(Map=_stub, Marker=_stub, Icon=_stub, Popup=_stub)
 import numpy as np
 import pandas as pd
 import plotly.express as px
