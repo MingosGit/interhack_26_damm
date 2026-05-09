@@ -5,7 +5,17 @@
       "Bash(.venv/bin/python -c \"import pandas, openpyxl, pyarrow, loguru, pytest; print\\('OK', pandas.__version__\\)\")",
       "Bash(.venv/bin/python)",
       "Bash(.venv/bin/python -m src.etl)",
-      "Bash(.venv/bin/python -m pytest tests/ -v)"
+      "Bash(.venv/bin/python -m pytest tests/ -v)",
+      "Bash(.venv/bin/python -c \"import geopy; print\\(geopy.__version__\\)\")",
+      "Bash(.venv/bin/python -c \"import folium; print\\(folium.__version__\\)\")",
+      "Bash(.venv/bin/python -m pytest tests/test_geocoding.py -v)",
+      "Bash(.venv/bin/python -m src.geocoding --limit 5)",
+      "Bash(.venv/bin/python -m src.geocoding)",
+      "Bash(tee cache/geocoding.log)",
+      "Bash(.venv/bin/python -m src.geocoding --smoke)",
+      "Bash(.venv/bin/python -c \"import pandas as pd; df = pd.read_parquet\\('cache/geocoding.parquet'\\); print\\(f'Filas: {len\\(df\\)} | OK: {df[\\\\\"status\\\\\"].str.startswith\\(\\\\\"ok\\\\\", na=False\\).sum\\(\\)} | Failed: {\\(df[\\\\\"status\\\\\"]==\\\\\"failed\\\\\"\\).sum\\(\\)}'\\)\")",
+      "Bash(.venv/bin/python -c ' *)",
+      "Bash(curl -sS --max-time 5 -o /dev/null -w \"HTTP %{http_code} in %{time_total}s\\\\n\" \"https://nominatim.openstreetmap.org/search?q=Mollet&format=json&limit=1\")"
     ]
   }
 }

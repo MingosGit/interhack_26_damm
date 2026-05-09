@@ -14,6 +14,24 @@ HORARIOS_XLSX = DATA_DIR / "Horarios Entrega.XLSX"
 
 CANONICAL_PARQUET = CACHE_DIR / "canonical.parquet"
 DATA_QUALITY_REPORT = CACHE_DIR / "data_quality_report.txt"
+GEOCODING_PARQUET = CACHE_DIR / "geocoding.parquet"
+GEOCODING_SMOKE_HTML = CACHE_DIR / "geocoding_smoke.html"
+DISTANCE_MATRIX_PARQUET = CACHE_DIR / "distance_matrix.parquet"
+
+NOMINATIM_USER_AGENT = "damm-smart-truck-interhack-bcn-2026"
+NOMINATIM_MIN_INTERVAL_S = 1.1  # margen sobre el límite de 1 req/s
+
+# Bounding box aproximado de Cataluña para sanity checks de geocoding.
+CATALUNYA_BBOX = {"lat_min": 40.45, "lat_max": 42.95, "lng_min": 0.10, "lng_max": 3.40}
+
+# Routing — matriz tiempo/distancia
+ORS_MATRIX_URL = "https://api.openrouteservice.org/v2/matrix/driving-hgv"
+OSRM_TABLE_URL = "https://router.project-osrm.org/table/v1/driving"
+ROUTING_HTTP_TIMEOUT_S = 30
+ROUTING_MAX_RETRIES = 3
+HAVERSINE_DETOUR_FACTOR = 1.4   # multiplicador para distancia de relleno en falla
+URBAN_AVG_SPEED_MS = 11.0        # ~40 km/h, usado para estimar tiempo en relleno
+COORD_PRECISION_DECIMALS = 6     # ~10 cm, suficiente para identificar pares
 
 DEPOT_LAT = 41.5408
 DEPOT_LNG = 2.2128
