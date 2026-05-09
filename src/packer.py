@@ -108,6 +108,38 @@ class TruckLoad:
 
 
 # ---------------------------------------------------------------------------
+# MVP 7 — Logística inversa: simulación de retornos sobre la carga
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ReturnEvent:
+    """Un evento de recogida de retornable en una parada."""
+    parada_idx: int          # 1-based en la ruta
+    cliente_id: int
+    volumen_l: float         # volumen retornable que TIENE este cliente
+    asignaciones: list[tuple[int, float]] = field(default_factory=list)
+    """Lista de (bahia_idx, vol_asignado_l). Suma debe ser ≤ volumen_l."""
+    overflow_l: float = 0.0  # volumen que no cupo (caso patológico)
+
+
+@dataclass
+class ReturnSchedule:
+    """Cronograma de retornos a lo largo de la ruta.
+
+    `bays_post_route[k]` es una lista paralela a las bahías con el volumen
+    OCUPADO en cada bahía justo después de servir la parada k (1-indexed,
+    ``k=0`` = camión recién salido).
+    """
+    events: list[ReturnEvent]
+    bays_post_route: list[list[float]]
+    overflow_total_l: float
+    feasible: bool                            # True si overflow_total_l == 0
+    capacidad_total_l: float
+    carga_viva_max_l: float
+    pico_parada_idx: int
+
+
+# ---------------------------------------------------------------------------
 # Utilidades
 # ---------------------------------------------------------------------------
 
@@ -360,111 +392,75 @@ def _suggest_larger_truck(current: str, vol_l: float, peso_kg: float) -> str | N
 
 
 # ---------------------------------------------------------------------------
-# Visualización 3D (plotly)
+# MVP 7 — simulate_returns
 # ---------------------------------------------------------------------------
 
-def _color_for_client(cid: int) -> str:
-    palette = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
-               "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
-               "#aec7e8", "#ffbb78", "#98df8a", "#ff9896", "#c5b0d5",
-               "#c49c94", "#f7b6d2", "#c7c7c7", "#dbdb8d", "#9edae5"]
-    return palette[hash(cid) % len(palette)]
+def simulate_returns(load: TruckLoad) -> ReturnSchedule:
+    """Simula entrega + recogida de retornables a lo largo de la ruta.
 
+    Modelo simple (decidido para el MVP):
 
-def _box_mesh(x0: float, y0: float, z0: float,
-              dx: float, dy: float, dz: float,
-              color: str, name: str, hover: str):
-    """Devuelve un go.Mesh3d que dibuja un cubo."""
-    import plotly.graph_objects as go
-    xs = [x0, x0 + dx, x0 + dx, x0, x0, x0 + dx, x0 + dx, x0]
-    ys = [y0, y0, y0 + dy, y0 + dy, y0, y0, y0 + dy, y0 + dy]
-    zs = [z0, z0, z0, z0, z0 + dz, z0 + dz, z0 + dz, z0 + dz]
-    # 12 triángulos (6 caras × 2)
-    i = [7, 0, 0, 0, 4, 4, 6, 6, 4, 0, 3, 2]
-    j = [3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 3]
-    k = [0, 7, 2, 3, 6, 7, 1, 1, 5, 5, 7, 6]
-    return go.Mesh3d(
-        x=xs, y=ys, z=zs, i=i, j=j, k=k,
-        color=color, opacity=0.6, name=name,
-        hovertext=hover, hoverinfo="text", showscale=False,
-    )
+    1. Las paradas se atienden en el orden de ``load.ordered_stops``.
+    2. Al servir el cliente k:
+        a. Las bahías que contienen items de k se vacían (descarga).
+        b. Los retornables del cliente k (``stop.volumen_retornable_l``) se
+           meten **preferentemente en las bahías que él acaba de liberar**.
+        c. Si sobra, se distribuyen en orden de bahía hacia bahías ya libres
+           (de clientes servidos antes).
+        d. Si tras agotar todas las libres aún queda retornable → ``overflow``
+           (la solución no cabe físicamente con el packing actual).
 
-
-def to_3d_visualization(load: TruckLoad, *, save_to: str | None = None):
-    """Render isométrico del camión con bahías apiladas por cliente.
-
-    Si ``save_to`` se pasa, escribe el HTML; de lo contrario devuelve la
-    `plotly.graph_objects.Figure`.
+    Devuelve un ``ReturnSchedule`` con el cronograma + métrica de pico.
     """
-    import plotly.graph_objects as go
-
     n_bays = len(load.bays)
-    bay_l = config.BAHIA_LARGO_CM
-    bay_w = config.BAHIA_ANCHO_CM
-    bay_h = config.BAHIA_ALTO_CM
+    if n_bays == 0:
+        return ReturnSchedule(
+            events=[], bays_post_route=[],
+            overflow_total_l=0.0, feasible=True,
+            capacidad_total_l=0.0,
+            carga_viva_max_l=0.0, pico_parada_idx=0,
+        )
 
-    traces = []
-    # Outline del camión.
-    truck_outline = _box_mesh(
-        0, 0, 0, n_bays * bay_l, bay_w, bay_h,
-        color="rgba(180,180,180,0.05)",
-        name=f"Camión {load.truck_type}",
-        hover=f"Camión {load.truck_type} | {load.vol_total_l:.0f}L total",
-    )
-    traces.append(truck_outline)
+    # Estado: volumen ocupado por bahía. Empieza con el packing inicial.
+    bay_used: list[float] = [b.vol_usado_l for b in load.bays]
+    bay_cap: list[float] = [b.capacidad_l for b in load.bays]
+    cap_total = sum(bay_cap)
 
-    # Items por bahía: stack vertical proporcional a volumen.
+    # Para cada cliente, qué bahías contienen items suyos (en orden).
+    bays_of_client: dict[int, list[int]] = {}
     for b in load.bays:
-        x0 = b.index * bay_l
-        z_cursor = 0.0
-        for it in b.items:
-            # Altura del item proporcional a vol respecto a capacidad bahía.
-            item_vol_ratio = it.volumen_l / b.capacidad_l if b.capacidad_l else 0
-            dz = max(5, item_vol_ratio * bay_h)
-            color = _color_for_client(it.cliente_id)
-            hover = (f"Cliente {it.cliente_id}<br>{it.cliente_nombre}<br>"
-                     f"{it.poblacion} {it.cp}<br>"
-                     f"{it.volumen_l:.1f} L | {it.peso_kg:.1f} kg<br>"
-                     f"tipo: {it.tipo_dominante}<br>"
-                     f"bahía {b.index} (parada {b.index + 1})")
-            traces.append(_box_mesh(
-                x0, 0, z_cursor, bay_l, bay_w, dz,
-                color=color, name=f"{it.cliente_nombre[:20]} (b{b.index})",
-                hover=hover,
-            ))
-            z_cursor += dz
+        for cid in b.cliente_ids:
+            bays_of_client.setdefault(int(cid), []).append(b.index)
+    for cid in bays_of_client:
+        bays_of_client[cid].sort()
 
-        # Línea de suelo entre bahías para separar visualmente.
-        traces.append(go.Scatter3d(
-            x=[x0, x0, x0, x0, x0],
-            y=[0, bay_w, bay_w, 0, 0],
-            z=[0, 0, bay_h, bay_h, 0],
-            mode="lines", line=dict(color="rgba(80,80,80,0.4)", width=2),
-            showlegend=False, hoverinfo="skip",
-        ))
+    events: list[ReturnEvent] = []
+    bays_post_route: list[list[float]] = [list(bay_used)]
+    overflow_total = 0.0
+    pico = float(sum(bay_used))
+    pico_idx = 0
 
-    # Flecha indicando lado de descarga.
-    traces.append(go.Scatter3d(
-        x=[0, 0], y=[bay_w + 30, bay_w + 30], z=[bay_h / 2, bay_h / 2],
-        mode="text", text=["▶ lado descarga (parada 1)"],
-        textfont=dict(size=14, color="red"),
-        showlegend=False, hoverinfo="skip",
-    ))
+    served: set[int] = set()
+    for k, stop in enumerate(load.ordered_stops, 1):
+        cid = int(stop.cliente_id)
 
-    fig = go.Figure(data=traces)
-    fig.update_layout(
-        title=f"Carga camión {load.truck_type} | "
-              f"{load.vol_total_l:.0f}L · {load.peso_total_kg:.0f}kg · "
-              f"coherencia={load.coherencia_cliente:.2f}",
-        scene=dict(
-            xaxis_title="Longitudinal (cm) · bahías 0→N",
-            yaxis_title="Ancho (cm)",
-            zaxis_title="Alto (cm)",
-            aspectmode="data",
-            camera=dict(eye=dict(x=1.6, y=-1.4, z=0.9)),
-        ),
-        margin=dict(l=0, r=0, t=40, b=0),
-    )
-    if save_to:
-        fig.write_html(save_to)
-    return fig
+        # (a) Descarga: las bahías de este cliente quedan libres.
+        own_bays = bays_of_client.get(cid, [])
+        for bidx in own_bays:
+            bay_used[bidx] = 0.0
+        served.add(cid)
+
+        # (b)+(c) Recogida del retornable: primero a sus propias bahías,
+        # luego a bahías de clientes ya servidos.
+        ret_remaining = float(stop.volumen_retornable_l)
+        ev = ReturnEvent(parada_idx=k, cliente_id=cid, volumen_l=ret_remaining)
+
+        order: list[int] = list(own_bays) + [
+            bidx for bidx in range(n_bays)
+            if bidx not in own_bays
+            and any(int(it.cliente_id) in served for it in load.bays[bidx].items)
+            and bay_used[bidx] == 0.0          # libre
+        ]
+        # Por compatibilidad, también permitimos derramar a cualquier bahía
+        # que esté actualmente libre (aunque no sea de servidos), con menor
+        # prioridad. Esto refleja que las lonas laterales dan 
