@@ -777,7 +777,11 @@ def _print_route_summary_single(payload: dict[str, Any], loading_html_path: str 
     
     # ===== BLOQUE 3: VISUALIZACIÓN DE CARGA =====
     print("\n" + "="*90)
-    loading_plan = visualize_loading_plan(stops, int(payload.get('truck_capacity_l', 14400)))
+    loading_plan = visualize_loading_plan(
+        stops,
+        int(payload.get('truck_capacity_l', 14400)),
+        truck_code=str(payload.get('truck', '6P')),
+    )
     print(format_loading_plan_for_terminal(loading_plan))
     if loading_html_path:
         out_html = export_loading_plan_html(
@@ -836,7 +840,11 @@ def _print_route_summary_fleet(payload: dict[str, Any], loading_html_path: str |
     
     # Insights agregados
     if all_stops:
-        loading_plan = visualize_loading_plan(all_stops, int(payload.get('truck_capacity_l', 14400)))
+        loading_plan = visualize_loading_plan(
+            all_stops,
+            int(payload.get('truck_capacity_l', 14400)),
+            truck_code=str(payload.get('truck', '6P')),
+        )
         if loading_html_path:
             out_html = export_loading_plan_html(
                 loading_plan,

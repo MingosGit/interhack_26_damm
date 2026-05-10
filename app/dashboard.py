@@ -499,6 +499,107 @@ def _build_route_map_html(stops_data: list[dict]) -> str:
     return route_map.get_root().render()
 
 
+VEHICLE_COLORS = [
+    "#2563eb", "#16a34a", "#dc2626", "#9333ea", "#ea580c",
+    "#0891b2", "#db2777", "#65a30d", "#7c3aed", "#0d9488",
+]
+
+
+def _vehicle_color(vehicle_index: int) -> str:
+    return VEHICLE_COLORS[(int(vehicle_index) - 1) % len(VEHICLE_COLORS)]
+
+
+def _build_multi_route_map_html(routes_data: list[dict]) -> str:
+    """Mapa folium con varias rutas (una por vehículo) coloreadas y conmutables."""
+    route_map = folium.Map(
+        location=[config.DEPOT_LAT, config.DEPOT_LNG],
+        zoom_start=11,
+        tiles="CartoDB positron",
+        control_scale=True,
+    )
+
+    folium.Marker(
+        [config.DEPOT_LAT, config.DEPOT_LNG],
+        tooltip=f"Salida - {config.DEPOT_NAME}",
+        popup=f"<b>Depósito</b><br>{escape(config.DEPOT_NAME)}",
+        icon=folium.Icon(color="red", icon="industry", prefix="fa"),
+    ).add_to(route_map)
+
+    seen_coords: dict[tuple[float, float], int] = {}
+
+    for route in routes_data:
+        vehicle_idx = int(route.get("vehicle_index", 1))
+        color = _vehicle_color(vehicle_idx)
+        stops = route.get("stops", []) or []
+        if not stops:
+            continue
+
+        layer = folium.FeatureGroup(
+            name=f"Vehículo {vehicle_idx} ({len(stops)} paradas)",
+            show=True,
+        )
+
+        routing_coords = [[config.DEPOT_LAT, config.DEPOT_LNG]]
+
+        for stop in stops:
+            lat_real = float(stop.get("lat", 0) or 0)
+            lng_real = float(stop.get("lng", 0) or 0)
+            if lat_real == 0 and lng_real == 0:
+                continue
+
+            routing_coords.append([lat_real, lng_real])
+
+            coord_key = (round(lat_real, 4), round(lng_real, 4))
+            offset_count = seen_coords.get(coord_key, 0)
+            seen_coords[coord_key] = offset_count + 1
+            lat_display = lat_real + (offset_count * 0.00015)
+            lng_display = lng_real + (offset_count * 0.00015)
+
+            order = int(stop.get("order", 0))
+            cliente = escape(str(stop.get("cliente_nombre", f"Parada {order}")))
+            poblacion = escape(str(stop.get("poblacion", "")))
+            popup = (
+                f"<b>V{vehicle_idx} · {order}. {cliente}</b><br>"
+                f"{poblacion}<br>"
+                f"Entrega: {float(stop.get('entrega_l', 0)):.0f} L · Recogida: {float(stop.get('recogida_l', 0)):.0f} L"
+            )
+
+            folium.Marker(
+                [lat_display, lng_display],
+                tooltip=f"V{vehicle_idx}-{order}. {stop.get('cliente_nombre', '')}",
+                popup=popup,
+                icon=folium.DivIcon(
+                    html=(
+                        f"<div style='width:32px;height:32px;border-radius:50%;background:{color};"
+                        "color:white;display:flex;align-items:center;justify-content:center;"
+                        "border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.25);"
+                        f"font-weight:700;font-size:11px;line-height:1;'>"
+                        f"<span style='display:flex;flex-direction:column;align-items:center;'>"
+                        f"<span style='font-size:8px;opacity:0.85;'>V{vehicle_idx}</span>"
+                        f"<span>{order}</span></span></div>"
+                    )
+                ),
+            ).add_to(layer)
+
+        if len(routing_coords) > 1:
+            route_geom = get_osrm_route_geometry(routing_coords)
+            if route_geom:
+                folium.PolyLine(
+                    route_geom, color=color, weight=4, opacity=0.78,
+                    tooltip=f"Vehículo {vehicle_idx}",
+                ).add_to(layer)
+            else:
+                folium.PolyLine(
+                    routing_coords, color=color, weight=4, opacity=0.78,
+                    dash_array="10", tooltip=f"Vehículo {vehicle_idx} (línea recta)",
+                ).add_to(layer)
+
+        layer.add_to(route_map)
+
+    folium.LayerControl(collapsed=False).add_to(route_map)
+    return route_map.get_root().render()
+
+
 def _build_route_table_html(stops_data: list[dict]) -> str:
     rows = []
     for s in stops_data:
@@ -534,9 +635,31 @@ def _build_loading_overview_html(result: dict) -> str:
     total_entrega = float(result.get("entrega_total_l", 0) or 0)
     total_recogida = float(result.get("recogida_total_l", 0) or 0)
     peso = float(result.get("peso_kg", 0) or 0)
-    stops_data = (result.get("snapshot_payload", {}) or {}).get("stops", [])
+    payload = result.get("snapshot_payload", {}) or {}
+    stops_data = payload.get("stops") or []
+    if not stops_data:
+        # Fleet mode: aggregate stops from all vehicle routes
+        stops_data = [s for r in (payload.get("routes") or []) for s in (r.get("stops") or [])]
 
-    top_productos = (result.get("snapshot_payload", {}) or {}).get("top_productos", [])[:8]
+    top_productos = list(payload.get("top_productos") or [])
+    if not top_productos:
+        # Fleet mode: aggregate top_productos across vehicles
+        bag: dict[str, dict] = {}
+        for r in (payload.get("routes") or []):
+            for p in (r.get("top_productos") or []):
+                key = str(p.get("material", ""))
+                entry = bag.setdefault(key, {
+                    "material": key,
+                    "denominacion": p.get("denominacion", ""),
+                    "vol_l": 0.0,
+                    "peso_kg": 0.0,
+                    "lineas": 0,
+                })
+                entry["vol_l"] += float(p.get("vol_l", 0) or 0)
+                entry["peso_kg"] += float(p.get("peso_kg", 0) or 0)
+                entry["lineas"] += int(p.get("lineas", 0) or 0)
+        top_productos = sorted(bag.values(), key=lambda x: x["vol_l"], reverse=True)
+    top_productos = top_productos[:8]
     cards = []
     for p in top_productos:
         cards.append(
@@ -616,57 +739,81 @@ def _build_zone_card_html(zone: dict, label: str) -> str:
     """
 
 
+_ROW_FULL_LABEL = {"n": "Norte", "s": "Sur", "m": "Centro"}
+
+
 def _build_truck_schematic_html(plan: dict) -> str:
     zones = {z.get("zone_id"): z for z in plan.get("loading_zones", []) or []}
-    bay_no1_html = _build_zone_card_html(zones.get("bay_no1", {}), "Bahía N-1 · frente")
-    bay_no2_html = _build_zone_card_html(zones.get("bay_no2", {}), "Bahía N-2 · atrás")
-    bay_su1_html = _build_zone_card_html(zones.get("bay_su1", {}), "Bahía S-1 · frente")
-    bay_su2_html = _build_zone_card_html(zones.get("bay_su2", {}), "Bahía S-2 · atrás")
-    toldo_izq_html = _build_zone_card_html(zones.get("toldo_izq", {}), "Toldo izq.")
-    toldo_der_html = _build_zone_card_html(zones.get("toldo_der", {}), "Toldo der.")
+    layout = plan.get("truck_layout", {}) or {}
+    n_cols = int(layout.get("n_cols", 2))
+    row_codes = layout.get("row_codes") or ["n", "s"]
+    has_toldos = bool(layout.get("has_toldos", True))
+    truck_code = plan.get("truck_code", "")
 
+    # Render rows × cols of bay cards
+    rows_html = []
+    for ri, rcode in enumerate(row_codes):
+        cards = []
+        for c in range(1, n_cols + 1):
+            zid = f"bay_{rcode}{c}"
+            zone = zones.get(zid)
+            if zone is None:
+                continue
+            row_label = _ROW_FULL_LABEL.get(rcode, rcode.upper())
+            label = f"Bahía {_ROW_FULL_LABEL.get(rcode, '?')[0]}-{c}" if len(row_codes) > 1 \
+                else f"Palet {c}"
+            cards.append(_build_zone_card_html(zone, label))
+
+        row_label_short = rcode.upper()
+        rows_html.append(
+            f"<div class='truck-row'>"
+            f"  <div class='truck-row-label'>{row_label_short}</div>"
+            f"  <div class='truck-row-content' style='grid-template-columns: repeat({n_cols}, 1fr);'>"
+            f"    {''.join(cards)}"
+            f"  </div>"
+            f"</div>"
+        )
+        if ri < len(row_codes) - 1:
+            rows_html.append("<div class='truck-divider'></div>")
+
+    # Wheels: scale with columns to look proportional
+    n_wheels = max(4, n_cols * 2)
+    wheels_html = "".join("<div class='wheel'></div>" for _ in range(n_wheels))
+
+    body_inner = (
+        "<div class='truck-cabin'>"
+        "  <div class='truck-cabin-icon'>🚛</div>"
+        f"  <div class='truck-cabin-label'>CABINA · {escape(truck_code)}</div>"
+        "</div>"
+        "<div class='truck-cargo'>"
+        f"  {''.join(rows_html)}"
+        "  <div class='truck-tail'>↓ RAMPA TRASERA · descarga principal</div>"
+        "</div>"
+        f"<div class='truck-wheels'>{wheels_html}</div>"
+    )
+
+    if has_toldos:
+        toldo_izq_html = _build_zone_card_html(zones.get("toldo_izq", {}), "Toldo izq.")
+        toldo_der_html = _build_zone_card_html(zones.get("toldo_der", {}), "Toldo der.")
+        return f"""
+        <div class="truck-schema">
+          <div class="truck-side">
+            <div class="truck-side-label">⬅ TOLDO IZQUIERDO</div>
+            {toldo_izq_html}
+            <div class="truck-side-foot">Retornables<br>(acceso lateral deslizable)</div>
+          </div>
+          <div class="truck-body">{body_inner}</div>
+          <div class="truck-side">
+            <div class="truck-side-label">TOLDO DERECHO ➡</div>
+            {toldo_der_html}
+            <div class="truck-side-foot">Retornables<br>(acceso lateral deslizable)</div>
+          </div>
+        </div>
+        """
+    # Sin toldos (furgoneta): el cuerpo ocupa todo el ancho
     return f"""
-    <div class="truck-schema">
-      <div class="truck-side">
-        <div class="truck-side-label">⬅ TOLDO IZQUIERDO</div>
-        {toldo_izq_html}
-        <div class="truck-side-foot">Retornables<br>(acceso lateral deslizable)</div>
-      </div>
-
-      <div class="truck-body">
-        <div class="truck-cabin">
-          <div class="truck-cabin-icon">🚛</div>
-          <div class="truck-cabin-label">CABINA</div>
-        </div>
-        <div class="truck-cargo">
-          <div class="truck-row">
-            <div class="truck-row-label">N</div>
-            <div class="truck-row-content">
-              {bay_no1_html}
-              {bay_no2_html}
-            </div>
-          </div>
-          <div class="truck-divider"></div>
-          <div class="truck-row">
-            <div class="truck-row-label">S</div>
-            <div class="truck-row-content">
-              {bay_su1_html}
-              {bay_su2_html}
-            </div>
-          </div>
-          <div class="truck-tail">↓ RAMPA TRASERA · descarga principal</div>
-        </div>
-        <div class="truck-wheels">
-          <div class="wheel"></div><div class="wheel"></div>
-          <div class="wheel"></div><div class="wheel"></div>
-        </div>
-      </div>
-
-      <div class="truck-side">
-        <div class="truck-side-label">TOLDO DERECHO ➡</div>
-        {toldo_der_html}
-        <div class="truck-side-foot">Retornables<br>(acceso lateral deslizable)</div>
-      </div>
+    <div class="truck-schema truck-schema-no-toldos">
+      <div class="truck-body">{body_inner}</div>
     </div>
     """
 
@@ -810,6 +957,7 @@ _LOADING_PLAN_CSS = """
   .lp-kpi-cap { color: #475569; font-size: 0.78rem; margin-top: 0.1rem; }
 
   .truck-schema { display: grid; grid-template-columns: 170px 1fr 170px; gap: 0.8rem; align-items: stretch; margin-bottom: 1.4rem; }
+  .truck-schema-no-toldos { grid-template-columns: 1fr; }
   .truck-side { display: flex; flex-direction: column; background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%); border: 2px dashed #f59e0b; border-radius: 16px; padding: 0.6rem; gap: 0.5rem; }
   .truck-side-label { font-size: 0.72rem; font-weight: 800; color: #92400e; text-align: center; letter-spacing: 0.05em; }
   .truck-side-foot { font-size: 0.7rem; color: #92400e; text-align: center; margin-top: auto; line-height: 1.25; }
@@ -965,8 +1113,8 @@ def _add_box_trace(
     )
 
 
-def _build_loading_3d_figure(stops_data: list[dict], truck_capacity_l: int) -> go.Figure:
-    plan = visualize_loading_plan(stops_data, truck_capacity_l)
+def _build_loading_3d_figure(stops_data: list[dict], truck_capacity_l: int, truck_code: str = "6P") -> go.Figure:
+    plan = visualize_loading_plan(stops_data, truck_capacity_l, truck_code=truck_code)
     zones = plan.get("loading_zones", [])
 
     zone_layout = {
@@ -1139,8 +1287,24 @@ if st.sidebar.button("RESOLVER OPTIMIZACION", type="primary", use_container_widt
                 status_placeholder.success(f"✅ Optimización completada: {vehicles_used} de {fleet_size} vehículos usados")
 
             snapshot_payload = result.get("snapshot_payload", {}) or {}
-            stops_data = snapshot_payload.get("stops", []) or []
             metrics = snapshot_payload.get("metrics", {}) or {}
+
+            # Normalizar payload: en modo flota cada vehículo tiene su propia ruta.
+            is_fleet = "routes" in snapshot_payload and bool(snapshot_payload.get("routes"))
+            if is_fleet:
+                routes_data = snapshot_payload.get("routes") or []
+                stops_data = [s for r in routes_data for s in (r.get("stops") or [])]
+            else:
+                stops_data = snapshot_payload.get("stops", []) or []
+                routes_data = [{
+                    "vehicle_index": 1,
+                    "stops": stops_data,
+                    "entrega_total_l": float(result.get("entrega_total_l", 0) or 0),
+                    "recogida_total_l": float(result.get("recogida_total_l", 0) or 0),
+                    "distance_m": float(result.get("opt_dist_m", 0) or 0),
+                    "time_s": float(result.get("opt_time_s", 0) or 0),
+                    "n_stops": int(result.get("n_stops", 0) or 0),
+                }]
 
             tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
                 "📊 Métricas",
@@ -1191,26 +1355,92 @@ if st.sidebar.button("RESOLVER OPTIMIZACION", type="primary", use_container_widt
 
             with tab2:
                 st.markdown('<div class="section-title">Ruta optimizada completa</div>', unsafe_allow_html=True)
-                st.caption("Mapa interactivo estilo Google Maps + tabla completa con entregas y recogidas concretas.")
 
-                if stops_data:
+                if not stops_data:
+                    st.info("ℹ️ No hay datos de ruta disponibles")
+                elif is_fleet and len(routes_data) > 1:
+                    st.caption(
+                        f"Mapa multi-vehículo: {len(routes_data)} rutas, una por camión. "
+                        "Usa el control de capas (arriba a la derecha) para mostrar/ocultar vehículos."
+                    )
+                    st.components.v1.html(_build_multi_route_map_html(routes_data), height=720, scrolling=False)
+
+                    legend_chips = "".join(
+                        f"<span style='display:inline-flex;align-items:center;gap:0.35rem;"
+                        f"margin:0 0.6rem 0.4rem 0;font-size:0.85rem;font-weight:600;color:#0f172a;'>"
+                        f"<span style='width:14px;height:14px;border-radius:50%;background:{_vehicle_color(int(r.get('vehicle_index', i+1)))};"
+                        "border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.25);'></span>"
+                        f"Vehículo {int(r.get('vehicle_index', i+1))} · {len(r.get('stops') or [])} paradas"
+                        "</span>"
+                        for i, r in enumerate(routes_data)
+                    )
+                    st.markdown(f"<div style='margin-top:0.6rem;'>{legend_chips}</div>", unsafe_allow_html=True)
+
+                    with st.expander("Ver tablas detalladas por vehículo", expanded=False):
+                        sub_tabs = st.tabs([
+                            f"🚚 V{int(r.get('vehicle_index', i+1))} ({len(r.get('stops') or [])} pdas)"
+                            for i, r in enumerate(routes_data)
+                        ])
+                        for sub, r in zip(sub_tabs, routes_data):
+                            with sub:
+                                v_stops = r.get("stops") or []
+                                if v_stops:
+                                    st.markdown(_build_route_table_html(v_stops), unsafe_allow_html=True)
+                                else:
+                                    st.info("Vehículo sin paradas asignadas.")
+                else:
+                    st.caption("Mapa interactivo estilo Google Maps + tabla completa con entregas y recogidas concretas.")
                     st.components.v1.html(_build_route_map_html(stops_data), height=720, scrolling=False)
                     with st.expander("Ver ruta completa en detalle", expanded=True):
                         st.markdown(_build_route_table_html(stops_data), unsafe_allow_html=True)
-                else:
-                    st.info("ℹ️ No hay datos de ruta disponibles")
 
             with tab3:
                 st.markdown('<div class="section-title">Plan de Carga</div>', unsafe_allow_html=True)
-                if stops_data:
-                    truck_capacity_l = int(TRUCKS[truck_selected]["vol_m3"] * 1000)
-                    loading_plan = visualize_loading_plan(stops_data, truck_capacity_l)
-                    import streamlit.components.v1 as components
+                truck_capacity_l = int(TRUCKS[truck_selected]["vol_m3"] * 1000)
+                import streamlit.components.v1 as components
+
+                if not stops_data:
+                    st.info("ℹ️ No hay datos de carga para visualizar")
+                elif is_fleet and len(routes_data) > 1:
+                    st.caption(
+                        f"Cada vehículo tiene su propio camión {truck_selected} y su propio plan de carga. "
+                        "Selecciona la pestaña del vehículo para verlo."
+                    )
+                    sub_tabs = st.tabs([
+                        f"🚚 V{int(r.get('vehicle_index', i+1))} ({len(r.get('stops') or [])} pdas)"
+                        for i, r in enumerate(routes_data)
+                    ])
+                    for i, (sub, r) in enumerate(zip(sub_tabs, routes_data)):
+                        with sub:
+                            v_stops = r.get("stops") or []
+                            if not v_stops:
+                                st.info("Este vehículo no tiene paradas asignadas.")
+                                continue
+                            v_idx = int(r.get("vehicle_index", i + 1))
+                            v_color = _vehicle_color(v_idx)
+                            v_entrega = float(r.get("entrega_total_l", 0) or 0)
+                            v_recogida = float(r.get("recogida_total_l", 0) or 0)
+                            v_dist_km = float(r.get("distance_m", 0) or 0) / 1000
+                            v_time_h = float(r.get("time_s", 0) or 0) / 3600
+                            st.markdown(
+                                f"<div style='display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;'>"
+                                f"<span style='width:14px;height:14px;border-radius:50%;background:{v_color};"
+                                "border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.25);'></span>"
+                                f"<b style='font-size:0.95rem;color:#0f172a;'>Vehículo {v_idx}</b>"
+                                f"<span style='color:#64748b;font-size:0.85rem;'>· {len(v_stops)} paradas · "
+                                f"{v_entrega:.0f} L entrega · {v_recogida:.0f} L recogida · "
+                                f"{v_dist_km:.1f} km · {v_time_h:.1f} h</span>"
+                                "</div>",
+                                unsafe_allow_html=True,
+                            )
+                            v_plan = visualize_loading_plan(v_stops, truck_capacity_l, truck_code=truck_selected)
+                            v_html = _build_loading_maps_html(v_plan, truck_selected, truck_capacity_l)
+                            components.html(v_html, height=720, scrolling=True)
+                else:
+                    loading_plan = visualize_loading_plan(stops_data, truck_capacity_l, truck_code=truck_selected)
                     html_blob = _build_loading_maps_html(loading_plan, truck_selected, truck_capacity_l)
                     components.html(html_blob, height=720, scrolling=True)
-                    st.caption("Mapa 2D tipo selector de asientos: vista superior y lateral, ambos sincronizados con el camión seleccionado.")
-                else:
-                    st.info("ℹ️ No hay datos de carga para visualizar")
+                    st.caption(f"Plan de carga del {truck_selected}: distribución dinámica por bahías y toldos.")
 
                 st.markdown(_build_loading_overview_html(result), unsafe_allow_html=True)
 
