@@ -1,0 +1,2521 @@
+{
+  "transporte": 11561535,
+  "truck": "6P",
+  "mode": "fleet",
+  "status": "OPTIMAL",
+  "vehicles_requested": 3,
+  "vehicles_used": 1,
+  "metrics": {
+    "baseline_time_s": 20258,
+    "baseline_dist_m": 42688,
+    "opt_time_s": 18221,
+    "opt_dist_m": 30522,
+    "delta_time_pct": -10.055,
+    "delta_dist_pct": -28.5
+  },
+  "routes": [
+    {
+      "vehicle_index": 1,
+      "n_stops": 25,
+      "time_s": 18221,
+      "distance_m": 30522,
+      "entrega_total_l": 6372.515,
+      "recogida_total_l": 3836.053,
+      "top_productos": [
+        {
+          "material": "CJ13",
+          "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+          "vol_l": 2190.0,
+          "peso_kg": 730.0,
+          "lineas": 27,
+          "retornable": true
+        },
+        {
+          "material": "ED13",
+          "denominacion": "ESTRELLA DAMM 1/3 RET. PP",
+          "vol_l": 435.6,
+          "peso_kg": 935.0,
+          "lineas": 13,
+          "retornable": true
+        },
+        {
+          "material": "CJ15",
+          "denominacion": "CAJA DAMM+BOT.1/5RET VACIO EN P.PLAS.A13",
+          "vol_l": 360.0,
+          "peso_kg": 120.0,
+          "lineas": 6,
+          "retornable": true
+        },
+        {
+          "material": "BRL30V",
+          "denominacion": "BARRIL INOX 30L. EURONORMA",
+          "vol_l": 350.0,
+          "peso_kg": 210.0,
+          "lineas": 4,
+          "retornable": true
+        },
+        {
+          "material": "VE32SP",
+          "denominacion": "AGUA VERI 1,5L PET CAJA 12U.",
+          "vol_l": 252.0,
+          "peso_kg": 273.84,
+          "lineas": 5,
+          "retornable": false
+        },
+        {
+          "material": "VE12SP",
+          "denominacion": "AGUA VERI 1/2 PET CAJA 24U. T.TH",
+          "vol_l": 204.0,
+          "peso_kg": 219.3,
+          "lineas": 6,
+          "retornable": false
+        },
+        {
+          "material": "3ENV1281",
+          "denominacion": "C.C. LECHE LETONA (NUEVO)",
+          "vol_l": 180.0,
+          "peso_kg": 60.0,
+          "lineas": 3,
+          "retornable": false
+        },
+        {
+          "material": "ED30",
+          "denominacion": "ESTRELLA DAMM BARRIL 30",
+          "vol_l": 150.0,
+          "peso_kg": 213.94,
+          "lineas": 2,
+          "retornable": true
+        },
+        {
+          "material": "3ENV0021",
+          "denominacion": "CAJA+BOTELLA COLA VR237",
+          "vol_l": 150.0,
+          "peso_kg": 50.0,
+          "lineas": 2,
+          "retornable": false
+        },
+        {
+          "material": "0LT0034",
+          "denominacion": "LETONA SEMI ESPEC HOSTELERIA PET 1,5L 6U",
+          "vol_l": 117.0,
+          "peso_kg": 117.0,
+          "lineas": 2,
+          "retornable": false
+        }
+      ],
+      "stops": [
+        {
+          "order": 1,
+          "cliente_id": 9100283498,
+          "cliente_nombre": "MIXU#S CAT CAFE",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.5998952,
+          "lng": 2.2794708,
+          "entrega_l": 489.44,
+          "recogida_l": 158.68,
+          "peso_kg": 366.925,
+          "entrega_id": 828149561,
+          "materiales": [
+            {
+              "material": "ED13",
+              "denominacion": "ESTRELLA DAMM 1/3 RET. PP",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 15.84,
+              "peso_kg": 34.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 60.0,
+              "peso_kg": 20.0,
+              "retornable": true
+            },
+            {
+              "material": "VO13",
+              "denominacion": "VOLL-DAMM 1/3 RET.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 17.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": true
+            },
+            {
+              "material": "0LT0032",
+              "denominacion": "CACAOLAT VIDRIO 20CL RET 30U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 6.0,
+              "peso_kg": 7.8,
+              "retornable": true
+            },
+            {
+              "material": "3ENV0029",
+              "denominacion": "C.C. CACAOLAT 30 U.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0LT0235",
+              "denominacion": "LA LEVANTINA AVENA ESP.HOST 1L 6U",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 12.0,
+              "peso_kg": 13.0,
+              "retornable": false
+            },
+            {
+              "material": "0LT0009",
+              "denominacion": "LETONA GRAN CREME 1L VR 12U",
+              "cantidad": 3,
+              "uma": "CAJ",
+              "vol_l": 36.0,
+              "peso_kg": 68.25,
+              "retornable": false
+            },
+            {
+              "material": "3ENV1281",
+              "denominacion": "C.C. LECHE LETONA (NUEVO)",
+              "cantidad": 3,
+              "uma": "CAJ",
+              "vol_l": 90.0,
+              "peso_kg": 30.0,
+              "retornable": false
+            },
+            {
+              "material": "0LT0030",
+              "denominacion": "LETONA DESNATADA 0% 1L VR 12U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 12.0,
+              "peso_kg": 13.0,
+              "retornable": false
+            },
+            {
+              "material": "3ENV1281",
+              "denominacion": "C.C. LECHE LETONA (NUEVO)",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0CF0080",
+              "denominacion": "XPLICIT NATURAL CREMOSO 1KG",
+              "cantidad": 3,
+              "uma": "UN",
+              "vol_l": 3.0,
+              "peso_kg": 3.0,
+              "retornable": false
+            },
+            {
+              "material": "0RF0019",
+              "denominacion": "/-COCA COLA LATA 33CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.6,
+              "retornable": false
+            },
+            {
+              "material": "NTL13LT6",
+              "denominacion": "NESTEA LIMON 1/3 LATA 4U-PACK 6U.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.625,
+              "retornable": false
+            },
+            {
+              "material": "0LI2687",
+              "denominacion": "P-BAILEYS ORI.CREMA WHISKY 1L",
+              "cantidad": 1,
+              "uma": "UN",
+              "vol_l": 1.0,
+              "peso_kg": 1.0,
+              "retornable": false
+            },
+            {
+              "material": "0RF0021",
+              "denominacion": "/-FANTA LIMON LATA 33 CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.6,
+              "retornable": false
+            },
+            {
+              "material": "0LI0204",
+              "denominacion": "J&B RARE WHISKY 1L",
+              "cantidad": 1,
+              "uma": "BOT",
+              "vol_l": 1.0,
+              "peso_kg": 1.0,
+              "retornable": true
+            },
+            {
+              "material": "0AM1290",
+              "denominacion": "XPLICIT AZUCAR 7GR  1000U",
+              "cantidad": 3,
+              "uma": "CAJ",
+              "vol_l": 22.5,
+              "peso_kg": 24.0,
+              "retornable": false
+            },
+            {
+              "material": "0AM1634",
+              "denominacion": "XPLICIT EDULCORANTE 1G 150U",
+              "cantidad": 3,
+              "uma": "CAJ",
+              "vol_l": 22.5,
+              "peso_kg": 0.45,
+              "retornable": false
+            },
+            {
+              "material": "VE12SP",
+              "denominacion": "AGUA VERI 1/2 PET CAJA 24U. T.TH",
+              "cantidad": 4,
+              "uma": "CAJ",
+              "vol_l": 48.0,
+              "peso_kg": 51.6,
+              "retornable": false
+            },
+            {
+              "material": "ED13",
+              "denominacion": "ESTRELLA DAMM 1/3 RET. PP",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 17.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": true
+            }
+          ]
+        },
+        {
+          "order": 2,
+          "cliente_id": 9100730939,
+          "cliente_nombre": "MUSIC CLUB RADIKAL",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6042778,
+          "lng": 2.2912636,
+          "entrega_l": 627.44,
+          "recogida_l": 361.416,
+          "peso_kg": 424.952,
+          "entrega_id": 828149574,
+          "materiales": [
+            {
+              "material": "VO13",
+              "denominacion": "VOLL-DAMM 1/3 RET.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 17.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": true
+            },
+            {
+              "material": "ED30",
+              "denominacion": "ESTRELLA DAMM BARRIL 30",
+              "cantidad": 4,
+              "uma": "BRL",
+              "vol_l": 120.0,
+              "peso_kg": 171.152,
+              "retornable": true
+            },
+            {
+              "material": "BRL30V",
+              "denominacion": "BARRIL INOX 30L. EURONORMA",
+              "cantidad": 4,
+              "uma": "BRL",
+              "vol_l": 200.0,
+              "peso_kg": 120.0,
+              "retornable": true
+            },
+            {
+              "material": "0RF0287",
+              "denominacion": "/-COCA COLA VR237 24U",
+              "cantidad": 4,
+              "uma": "CAJ",
+              "vol_l": 101.024,
+              "peso_kg": 25.6,
+              "retornable": false
+            },
+            {
+              "material": "3ENV0021",
+              "denominacion": "CAJA+BOTELLA COLA VR237",
+              "cantidad": 4,
+              "uma": "CAJ",
+              "vol_l": 120.0,
+              "peso_kg": 40.0,
+              "retornable": false
+            },
+            {
+              "material": "0RF0293",
+              "denominacion": "/-FANTA LIMON VR237 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 15.0,
+              "retornable": false
+            },
+            {
+              "material": "3ENV0021",
+              "denominacion": "CAJA+BOTELLA COLA VR237",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0RF0296",
+              "denominacion": "RED BULL ENERGY DRINK 25CL LATA 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 6.0,
+              "peso_kg": 7.0,
+              "retornable": false
+            },
+            {
+              "material": "0LI0113",
+              "denominacion": "JACK DANIELS WHISKY 70CL",
+              "cantidad": 1,
+              "uma": "BOT",
+              "vol_l": 0.699,
+              "peso_kg": 1.0,
+              "retornable": true
+            },
+            {
+              "material": "0LI0974",
+              "denominacion": "JACK DANIELS TENNESSEE FIRE WHISKY 70CL",
+              "cantidad": 1,
+              "uma": "BOT",
+              "vol_l": 0.7,
+              "peso_kg": 1.0,
+              "retornable": true
+            },
+            {
+              "material": "0LI0270",
+              "denominacion": "JAGERMEISTER LICOR HIERBAS 70CL",
+              "cantidad": 1,
+              "uma": "BOT",
+              "vol_l": 0.699,
+              "peso_kg": 1.0,
+              "retornable": true
+            },
+            {
+              "material": "0LI0063",
+              "denominacion": "CACIQUE RON AÑEJO 70CL",
+              "cantidad": 1,
+              "uma": "BOT",
+              "vol_l": 0.699,
+              "peso_kg": 1.0,
+              "retornable": true
+            },
+            {
+              "material": "0LI0068",
+              "denominacion": "NEGRITA RON 70CL",
+              "cantidad": 1,
+              "uma": "BOT",
+              "vol_l": 0.699,
+              "peso_kg": 1.0,
+              "retornable": true
+            },
+            {
+              "material": "0LI2698",
+              "denominacion": "P-BRUGAL AÑEJO 70CL",
+              "cantidad": 6,
+              "uma": "UN",
+              "vol_l": 4.2,
+              "peso_kg": 4.2,
+              "retornable": false
+            }
+          ]
+        },
+        {
+          "order": 3,
+          "cliente_id": 9100526119,
+          "cliente_nombre": "BAR INDELALBA",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6029087,
+          "lng": 2.2929022,
+          "entrega_l": 951.22,
+          "recogida_l": 848.8,
+          "peso_kg": 705.723,
+          "entrega_id": 828149568,
+          "materiales": [
+            {
+              "material": "ED13",
+              "denominacion": "ESTRELLA DAMM 1/3 RET. PP",
+              "cantidad": 7,
+              "uma": "CAJ",
+              "vol_l": 55.44,
+              "peso_kg": 119.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 7,
+              "uma": "CAJ",
+              "vol_l": 210.0,
+              "peso_kg": 70.0,
+              "retornable": true
+            },
+            {
+              "material": "ED15LN",
+              "denominacion": "ESTRELLA DAMM 1/5 LN",
+              "cantidad": 3,
+              "uma": "CAJ",
+              "vol_l": 18.0,
+              "peso_kg": 43.02,
+              "retornable": false
+            },
+            {
+              "material": "CJ15",
+              "denominacion": "CAJA DAMM+BOT.1/5RET VACIO EN P.PLAS.A13",
+              "cantidad": 3,
+              "uma": "CAJ",
+              "vol_l": 90.0,
+              "peso_kg": 30.0,
+              "retornable": true
+            },
+            {
+              "material": "FDL13",
+              "denominacion": "FREE DAMM LIMON 1/3 RET. PP",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 15.84,
+              "peso_kg": 34.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 60.0,
+              "peso_kg": 20.0,
+              "retornable": true
+            },
+            {
+              "material": "XI13",
+              "denominacion": "XIBECA 5% 1/3 RET",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 17.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": true
+            },
+            {
+              "material": "VE12SP",
+              "denominacion": "AGUA VERI 1/2 PET CAJA 24U. T.TH",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 24.0,
+              "peso_kg": 25.8,
+              "retornable": false
+            },
+            {
+              "material": "VE32SP",
+              "denominacion": "AGUA VERI 1,5L PET CAJA 12U.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 18.0,
+              "peso_kg": 19.56,
+              "retornable": false
+            },
+            {
+              "material": "TU30",
+              "denominacion": "TURIA BARRIL 30L.",
+              "cantidad": 1,
+              "uma": "BRL",
+              "vol_l": 30.0,
+              "peso_kg": 42.788,
+              "retornable": true
+            },
+            {
+              "material": "BRL30V",
+              "denominacion": "BARRIL INOX 30L. EURONORMA",
+              "cantidad": 1,
+              "uma": "BRL",
+              "vol_l": 50.0,
+              "peso_kg": 30.0,
+              "retornable": true
+            },
+            {
+              "material": "BRL30V",
+              "denominacion": "BARRIL INOX 30L. EURONORMA",
+              "cantidad": 1,
+              "uma": "BRL",
+              "vol_l": 50.0,
+              "peso_kg": 30.0,
+              "retornable": true
+            },
+            {
+              "material": "NTL13LT6",
+              "denominacion": "NESTEA LIMON 1/3 LATA 4U-PACK 6U.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.625,
+              "retornable": false
+            },
+            {
+              "material": "ED15LN",
+              "denominacion": "ESTRELLA DAMM 1/5 LN",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 12.0,
+              "peso_kg": 28.68,
+              "retornable": false
+            },
+            {
+              "material": "CJ15",
+              "denominacion": "CAJA DAMM+BOT.1/5RET VACIO EN P.PLAS.A13",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 60.0,
+              "peso_kg": 20.0,
+              "retornable": true
+            },
+            {
+              "material": "XI13",
+              "denominacion": "XIBECA 5% 1/3 RET",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 17.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": true
+            },
+            {
+              "material": "ED13",
+              "denominacion": "ESTRELLA DAMM 1/3 RET. PP",
+              "cantidad": 4,
+              "uma": "CAJ",
+              "vol_l": 31.68,
+              "peso_kg": 68.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 4,
+              "uma": "CAJ",
+              "vol_l": 120.0,
+              "peso_kg": 40.0,
+              "retornable": true
+            },
+            {
+              "material": "NTL13LT6",
+              "denominacion": "NESTEA LIMON 1/3 LATA 4U-PACK 6U.",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 15.84,
+              "peso_kg": 17.25,
+              "retornable": false
+            },
+            {
+              "material": "0AM1281",
+              "denominacion": "BARGALLO OLIVA SANSA SUAVE 5L",
+              "cantidad": 1,
+              "uma": "UN",
+              "vol_l": 6.66,
+              "peso_kg": 5.0,
+              "retornable": false
+            }
+          ]
+        },
+        {
+          "order": 4,
+          "cliente_id": 9100526119,
+          "cliente_nombre": "BAR INDELALBA",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6029087,
+          "lng": 2.2929022,
+          "entrega_l": 50.0,
+          "recogida_l": 50.0,
+          "peso_kg": 30.0,
+          "entrega_id": 841056053,
+          "materiales": [
+            {
+              "material": "BRL20V",
+              "denominacion": "BARRIL INOX 20L. TANQUETA A16",
+              "cantidad": 1,
+              "uma": "BRL",
+              "vol_l": 50.0,
+              "peso_kg": 30.0,
+              "retornable": true
+            }
+          ]
+        },
+        {
+          "order": 5,
+          "cliente_id": 9100040930,
+          "cliente_nombre": "COFFEE YAGUNA",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6076413,
+          "lng": 2.2954124,
+          "entrega_l": 188.3,
+          "recogida_l": 5.0,
+          "peso_kg": 215.6,
+          "entrega_id": 828149563,
+          "materiales": [
+            {
+              "material": "VE32SP",
+              "denominacion": "AGUA VERI 1,5L PET CAJA 12U.",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 36.0,
+              "peso_kg": 39.12,
+              "retornable": false
+            },
+            {
+              "material": "VE13SP",
+              "denominacion": "AGUA VERI 1/3 PET CAJA 35U. T.TH",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 23.1,
+              "peso_kg": 25.38,
+              "retornable": false
+            },
+            {
+              "material": "0LT0235",
+              "denominacion": "LA LEVANTINA AVENA ESP.HOST 1L 6U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 6.0,
+              "peso_kg": 6.5,
+              "retornable": false
+            },
+            {
+              "material": "0LT0009",
+              "denominacion": "LETONA GRAN CREME 1L VR 12U",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 24.0,
+              "peso_kg": 45.5,
+              "retornable": false
+            },
+            {
+              "material": "3ENV1281",
+              "denominacion": "C.C. LECHE LETONA (NUEVO)",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 60.0,
+              "peso_kg": 20.0,
+              "retornable": false
+            },
+            {
+              "material": "0LT0090",
+              "denominacion": "LETONA SEMI SIN LACTOSA 1L PET 6U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 6.0,
+              "peso_kg": 6.5,
+              "retornable": false
+            },
+            {
+              "material": "0AM4556",
+              "denominacion": "BARGALLO ACEITE ALTO RENDIMIENTO 10L",
+              "cantidad": 1,
+              "uma": "UN",
+              "vol_l": 1.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "TB8",
+              "denominacion": "BOTELLAS CARBONICO 8 KILOS",
+              "cantidad": 1,
+              "uma": "TB",
+              "vol_l": 8.0,
+              "peso_kg": 26.0,
+              "retornable": false
+            },
+            {
+              "material": "TB8V",
+              "denominacion": "BOTELLAS CARBONICO 8 KG.VACIOS",
+              "cantidad": 1,
+              "uma": "TB",
+              "vol_l": 5.0,
+              "peso_kg": 3.0,
+              "retornable": true
+            },
+            {
+              "material": "0ZU0024",
+              "denominacion": "GRANINI PIÑA 20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 8.4,
+              "retornable": false
+            },
+            {
+              "material": "0ZU0021",
+              "denominacion": "GRANINI NARANJA 20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 8.4,
+              "retornable": false
+            },
+            {
+              "material": "0ZU0020",
+              "denominacion": "GRANINI MELOCOTON  20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 8.4,
+              "retornable": false
+            },
+            {
+              "material": "0ZU0026",
+              "denominacion": "GRANINI MANZANA  20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 8.4,
+              "retornable": false
+            }
+          ]
+        },
+        {
+          "order": 6,
+          "cliente_id": 9100738166,
+          "cliente_nombre": "BONA TAPA",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6104581,
+          "lng": 2.2940159,
+          "entrega_l": 7.92,
+          "recogida_l": 0.0,
+          "peso_kg": 8.625,
+          "entrega_id": 841056052,
+          "materiales": [
+            {
+              "material": "NTL13LT6",
+              "denominacion": "NESTEA LIMON 1/3 LATA 4U-PACK 6U.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.625,
+              "retornable": false
+            }
+          ]
+        },
+        {
+          "order": 7,
+          "cliente_id": 9100755674,
+          "cliente_nombre": "BAR RESTAURANTE A PICOS",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6104581,
+          "lng": 2.2940159,
+          "entrega_l": 440.2,
+          "recogida_l": 0.0,
+          "peso_kg": 230.495,
+          "entrega_id": 828149566,
+          "materiales": [
+            {
+              "material": "VE32SP",
+              "denominacion": "AGUA VERI 1,5L PET CAJA 12U.",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 36.0,
+              "peso_kg": 39.12,
+              "retornable": false
+            },
+            {
+              "material": "0RF1697",
+              "denominacion": "/-COCA COLA IMPORT LATA33 24U",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 15.84,
+              "peso_kg": 17.2,
+              "retornable": false
+            },
+            {
+              "material": "0RF1698",
+              "denominacion": "/-COCA COLA ZERO IMPORT LATA33 24U",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 15.84,
+              "peso_kg": 17.2,
+              "retornable": false
+            },
+            {
+              "material": "NTL13LT6",
+              "denominacion": "NESTEA LIMON 1/3 LATA 4U-PACK 6U.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.625,
+              "retornable": false
+            },
+            {
+              "material": "0LM0661",
+              "denominacion": "GC TOALLA MANO 2C.200x230 20U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0CF0410",
+              "denominacion": "MOMENT TEA  MANZANILLA E15 15U",
+              "cantidad": 1,
+              "uma": "EST",
+              "vol_l": 10.0,
+              "peso_kg": 5.0,
+              "retornable": false
+            },
+            {
+              "material": "0CF0420",
+              "denominacion": "MOMENT TEA VERDE MO. HIERBA 15U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0CF0128",
+              "denominacion": "MOMENT TEA VERDEJENGIBRE 15U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0CF0415",
+              "denominacion": "MOMENT TEA TILA 15U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0CF0412",
+              "denominacion": "MOMENT TEA ROOIBOS COPACABANA 15U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0CF0411",
+              "denominacion": "MOMENT TEA ROJO PU ERH 15U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0CF0418",
+              "denominacion": "MOMENT TEA PU ERH STRAWBERRY 15U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0CF0419",
+              "denominacion": "MOMENT TEA NEGRO SUE. CAN. 15U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0CF0124",
+              "denominacion": "MOMENT TEA MENTA POLEO 15U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0CF0421",
+              "denominacion": "MOMENT TEA FRUTAS BOSQUE 15U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0AM1634",
+              "denominacion": "XPLICIT EDULCORANTE 1G 150U",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 15.0,
+              "peso_kg": 0.3,
+              "retornable": false
+            },
+            {
+              "material": "NTL13LT6",
+              "denominacion": "NESTEA LIMON 1/3 LATA 4U-PACK 6U.",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 15.84,
+              "peso_kg": 17.25,
+              "retornable": false
+            },
+            {
+              "material": "0RF0020",
+              "denominacion": "/-FANTA NARANJA LATA 33CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.6,
+              "retornable": false
+            },
+            {
+              "material": "0RF0022",
+              "denominacion": "/-AQUARIUS LIMON 33CL LATA 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.6,
+              "retornable": false
+            },
+            {
+              "material": "0RF0056",
+              "denominacion": "/-AQUARIUS NARANJA 33CL LATA 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.6,
+              "retornable": false
+            }
+          ]
+        },
+        {
+          "order": 8,
+          "cliente_id": 9100738166,
+          "cliente_nombre": "BONA TAPA",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6104581,
+          "lng": 2.2940159,
+          "entrega_l": 450.84,
+          "recogida_l": 417.12,
+          "peso_kg": 317.616,
+          "entrega_id": 828149564,
+          "materiales": [
+            {
+              "material": "ED13",
+              "denominacion": "ESTRELLA DAMM 1/3 RET. PP",
+              "cantidad": 7,
+              "uma": "CAJ",
+              "vol_l": 55.44,
+              "peso_kg": 119.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 7,
+              "uma": "CAJ",
+              "vol_l": 210.0,
+              "peso_kg": 70.0,
+              "retornable": true
+            },
+            {
+              "material": "0ZU0032",
+              "denominacion": "JUVER NECTAR PIÑA 20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 9.0,
+              "retornable": false
+            },
+            {
+              "material": "0AM0553",
+              "denominacion": "CHOVI SALSA BRAVA ESP PATATAS 1 KG",
+              "cantidad": 6,
+              "uma": "UN",
+              "vol_l": 21.0,
+              "peso_kg": 3.0,
+              "retornable": false
+            },
+            {
+              "material": "NTF13L6F",
+              "denominacion": "NESTEA F.ROJOS 33CL LATA 4U-P6U SDR HT",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.616,
+              "retornable": false
+            },
+            {
+              "material": "ED13",
+              "denominacion": "ESTRELLA DAMM 1/3 RET. PP",
+              "cantidad": 4,
+              "uma": "CAJ",
+              "vol_l": 31.68,
+              "peso_kg": 68.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 4,
+              "uma": "CAJ",
+              "vol_l": 120.0,
+              "peso_kg": 40.0,
+              "retornable": true
+            }
+          ]
+        },
+        {
+          "order": 9,
+          "cliente_id": 9100338195,
+          "cliente_nombre": "BAR JUAQUIN",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6104581,
+          "lng": 2.2940159,
+          "entrega_l": 301.137,
+          "recogida_l": 229.617,
+          "peso_kg": 241.475,
+          "entrega_id": 828149567,
+          "materiales": [
+            {
+              "material": "ED13",
+              "denominacion": "ESTRELLA DAMM 1/3 RET. PP",
+              "cantidad": 4,
+              "uma": "CAJ",
+              "vol_l": 31.68,
+              "peso_kg": 68.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 4,
+              "uma": "CAJ",
+              "vol_l": 120.0,
+              "peso_kg": 40.0,
+              "retornable": true
+            },
+            {
+              "material": "0LT0412",
+              "denominacion": "CACAOLAT ORIGINAL 27,5CL PET 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 6.6,
+              "peso_kg": 7.25,
+              "retornable": false
+            },
+            {
+              "material": "0LT0033",
+              "denominacion": "LETONA GRAN CREME PET 1,5L PET 6U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 9.0,
+              "peso_kg": 9.0,
+              "retornable": false
+            },
+            {
+              "material": "0LI0149",
+              "denominacion": "XANTIAMEN OSBORNE ORUJO BLANCO 70CL",
+              "cantidad": 3,
+              "uma": "BOT",
+              "vol_l": 2.097,
+              "peso_kg": 3.0,
+              "retornable": true
+            },
+            {
+              "material": "NTL13LT6",
+              "denominacion": "NESTEA LIMON 1/3 LATA 4U-PACK 6U.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.625,
+              "retornable": false
+            },
+            {
+              "material": "VE12SP",
+              "denominacion": "AGUA VERI 1/2 PET CAJA 24U. T.TH",
+              "cantidad": 4,
+              "uma": "CAJ",
+              "vol_l": 48.0,
+              "peso_kg": 51.6,
+              "retornable": false
+            },
+            {
+              "material": "ED13",
+              "denominacion": "ESTRELLA DAMM 1/3 RET. PP",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 15.84,
+              "peso_kg": 34.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 60.0,
+              "peso_kg": 20.0,
+              "retornable": true
+            }
+          ]
+        },
+        {
+          "order": 10,
+          "cliente_id": 9100758269,
+          "cliente_nombre": "CASA TOI",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.614473,
+          "lng": 2.291737,
+          "entrega_l": 352.63,
+          "recogida_l": 222.38,
+          "peso_kg": 300.732,
+          "entrega_id": 828149578,
+          "materiales": [
+            {
+              "material": "FDT13",
+              "denominacion": "FREE DAMM TOSTADA 1/3 RET. PP",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 17.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": true
+            },
+            {
+              "material": "VO13",
+              "denominacion": "VOLL-DAMM 1/3 RET.",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 15.84,
+              "peso_kg": 34.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 60.0,
+              "peso_kg": 20.0,
+              "retornable": true
+            },
+            {
+              "material": "TU20",
+              "denominacion": "TURIA BARRIL 20L.",
+              "cantidad": 1,
+              "uma": "BRL",
+              "vol_l": 20.0,
+              "peso_kg": 27.392,
+              "retornable": true
+            },
+            {
+              "material": "BRL20V",
+              "denominacion": "BARRIL INOX 20L. TANQUETA A16",
+              "cantidad": 1,
+              "uma": "BRL",
+              "vol_l": 50.0,
+              "peso_kg": 30.0,
+              "retornable": true
+            },
+            {
+              "material": "0LT0235",
+              "denominacion": "LA LEVANTINA AVENA ESP.HOST 1L 6U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 6.0,
+              "peso_kg": 6.5,
+              "retornable": false
+            },
+            {
+              "material": "0VE3263",
+              "denominacion": "IRREVERENTE VERMUT RESERVA 1L 1U",
+              "cantidad": 2,
+              "uma": "UN",
+              "vol_l": 2.0,
+              "peso_kg": 2.0,
+              "retornable": false
+            },
+            {
+              "material": "0VE0463",
+              "denominacion": "SOLAR DE ZUNIL TINTO 75CL 6U",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 20.7,
+              "peso_kg": 15.0,
+              "retornable": false
+            },
+            {
+              "material": "0VE0465",
+              "denominacion": "SOLAR DE ZUNIL BLANCO 75CL 6U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 10.35,
+              "peso_kg": 4.5,
+              "retornable": false
+            },
+            {
+              "material": "0LI2672",
+              "denominacion": "CAIMAN TRIPLE SECO  1L 1U",
+              "cantidad": 1,
+              "uma": "UN",
+              "vol_l": 1.0,
+              "peso_kg": 1.0,
+              "retornable": false
+            },
+            {
+              "material": "0RF0169",
+              "denominacion": "/-FANTA LIMON 2L PET 6U",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 24.0,
+              "peso_kg": 26.24,
+              "retornable": false
+            },
+            {
+              "material": "0LM0100",
+              "denominacion": "BALNIC ABRILLANTADOR LAVAVAJILLAS AUTO5K",
+              "cantidad": 1,
+              "uma": "UN",
+              "vol_l": 1.0,
+              "peso_kg": 5.0,
+              "retornable": false
+            },
+            {
+              "material": "0LM0114",
+              "denominacion": "BALNIC DESENGR.PLANCHAS HORNO 6KG",
+              "cantidad": 1,
+              "uma": "UN",
+              "vol_l": 1.0,
+              "peso_kg": 6.0,
+              "retornable": false
+            },
+            {
+              "material": "0LM0504",
+              "denominacion": "GC SERVILLETA 1C 30x30 GC 100U",
+              "cantidad": 30,
+              "uma": "UN",
+              "vol_l": 30.0,
+              "peso_kg": 15.0,
+              "retornable": false
+            },
+            {
+              "material": "0LI0963",
+              "denominacion": "TANQUERAY GIN 0,0 70CL",
+              "cantidad": 1,
+              "uma": "BOT",
+              "vol_l": 0.7,
+              "peso_kg": 1.0,
+              "retornable": true
+            },
+            {
+              "material": "0LI2687",
+              "denominacion": "P-BAILEYS ORI.CREMA WHISKY 1L",
+              "cantidad": 1,
+              "uma": "UN",
+              "vol_l": 1.0,
+              "peso_kg": 1.0,
+              "retornable": false
+            },
+            {
+              "material": "0RF0124",
+              "denominacion": "/-COCA COLA 2L PET 6U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 12.0,
+              "peso_kg": 12.0,
+              "retornable": false
+            },
+            {
+              "material": "1PLV0003",
+              "denominacion": "NEVERAS GRANINI",
+              "cantidad": 1,
+              "uma": "UN",
+              "vol_l": 1.0,
+              "peso_kg": 0.5,
+              "retornable": false
+            },
+            {
+              "material": "0ZU0024",
+              "denominacion": "GRANINI PIÑA 20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 8.4,
+              "retornable": false
+            },
+            {
+              "material": "0ZU0020",
+              "denominacion": "GRANINI MELOCOTON  20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 8.4,
+              "retornable": false
+            },
+            {
+              "material": "FDT13",
+              "denominacion": "FREE DAMM TOSTADA 1/3 RET. PP",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 17.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": true
+            },
+            {
+              "material": "0ZU0021",
+              "denominacion": "GRANINI NARANJA 20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 8.4,
+              "retornable": false
+            },
+            {
+              "material": "0ZU0271",
+              "denominacion": "GRANINI LIMONADA 20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 8.4,
+              "retornable": false
+            },
+            {
+              "material": "0LM0105",
+              "denominacion": "BALNIC LAVAVAJILLAS AGUA SEMI 6KG",
+              "cantidad": 1,
+              "uma": "UN",
+              "vol_l": 1.0,
+              "peso_kg": 6.0,
+              "retornable": false
+            }
+          ]
+        },
+        {
+          "order": 11,
+          "cliente_id": 9100758269,
+          "cliente_nombre": "CASA TOI",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.614473,
+          "lng": 2.291737,
+          "entrega_l": 19.2,
+          "recogida_l": 0.0,
+          "peso_kg": 33.6,
+          "entrega_id": 828149579,
+          "materiales": [
+            {
+              "material": "0ZU0024",
+              "denominacion": "GRANINI PIÑA 20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 8.4,
+              "retornable": false
+            },
+            {
+              "material": "0ZU0020",
+              "denominacion": "GRANINI MELOCOTON  20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 8.4,
+              "retornable": false
+            },
+            {
+              "material": "0ZU0021",
+              "denominacion": "GRANINI NARANJA 20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 8.4,
+              "retornable": false
+            },
+            {
+              "material": "0ZU0271",
+              "denominacion": "GRANINI LIMONADA 20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 8.4,
+              "retornable": false
+            }
+          ]
+        },
+        {
+          "order": 12,
+          "cliente_id": 9100553915,
+          "cliente_nombre": "LA PLANCHA ÑAM ÑAM",
+          "poblacion": "FRANQUESES DEL VALLES (LES)",
+          "lat": 41.628514,
+          "lng": 2.296868,
+          "entrega_l": 293.636,
+          "recogida_l": 131.12,
+          "peso_kg": 217.349,
+          "entrega_id": 828149570,
+          "materiales": [
+            {
+              "material": "ED30",
+              "denominacion": "ESTRELLA DAMM BARRIL 30",
+              "cantidad": 1,
+              "uma": "BRL",
+              "vol_l": 30.0,
+              "peso_kg": 42.788,
+              "retornable": true
+            },
+            {
+              "material": "BRL30V",
+              "denominacion": "BARRIL INOX 30L. EURONORMA",
+              "cantidad": 1,
+              "uma": "BRL",
+              "vol_l": 50.0,
+              "peso_kg": 30.0,
+              "retornable": true
+            },
+            {
+              "material": "0AG0183",
+              "denominacion": "VICHY CATALAN GAS 30CL RET 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.2,
+              "peso_kg": 14.1,
+              "retornable": true
+            },
+            {
+              "material": "3ENV0236",
+              "denominacion": "C.C. AGUA 1/3 VICHY-FONT D'OR",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0LT0032",
+              "denominacion": "CACAOLAT VIDRIO 20CL RET 30U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 6.0,
+              "peso_kg": 7.8,
+              "retornable": true
+            },
+            {
+              "material": "3ENV0029",
+              "denominacion": "C.C. CACAOLAT 30 U.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0LT0235",
+              "denominacion": "LA LEVANTINA AVENA ESP.HOST 1L 6U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 6.0,
+              "peso_kg": 6.5,
+              "retornable": false
+            },
+            {
+              "material": "0LT0033",
+              "denominacion": "LETONA GRAN CREME PET 1,5L PET 6U",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 18.0,
+              "peso_kg": 18.0,
+              "retornable": false
+            },
+            {
+              "material": "0CF1135",
+              "denominacion": "GARRIGA S.EXPRES NATURAL BOLSA 1KG 1U",
+              "cantidad": 2,
+              "uma": "UN",
+              "vol_l": 2.0,
+              "peso_kg": 2.244,
+              "retornable": false
+            },
+            {
+              "material": "0CF1137",
+              "denominacion": "GARRIGA DESCAFEINADO BOLSA 500G 1U",
+              "cantidad": 1,
+              "uma": "UN",
+              "vol_l": 1.0,
+              "peso_kg": 1.122,
+              "retornable": false
+            },
+            {
+              "material": "0RF0019",
+              "denominacion": "/-COCA COLA LATA 33CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.6,
+              "retornable": false
+            },
+            {
+              "material": "0RF0079",
+              "denominacion": "/-COCA COLA ZERO LATA 33CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.6,
+              "retornable": false
+            },
+            {
+              "material": "NTL13LT6",
+              "denominacion": "NESTEA LIMON 1/3 LATA 4U-PACK 6U.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.625,
+              "retornable": false
+            },
+            {
+              "material": "0AM1290",
+              "denominacion": "XPLICIT AZUCAR 7GR  1000U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.5,
+              "peso_kg": 8.0,
+              "retornable": false
+            },
+            {
+              "material": "0AM1167",
+              "denominacion": "MARINAS PATATAS OLIVA 47G  10U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 8.0,
+              "peso_kg": 0.47,
+              "retornable": false
+            },
+            {
+              "material": "0AM1610",
+              "denominacion": "GIMAR MAGDALENA CASERA 710G 9U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0LM0504",
+              "denominacion": "GC SERVILLETA 1C 30x30 GC 100U",
+              "cantidad": 4,
+              "uma": "UN",
+              "vol_l": 4.0,
+              "peso_kg": 2.0,
+              "retornable": false
+            },
+            {
+              "material": "0LM0334",
+              "denominacion": "KH 7 DESIC INSECT SUELOS 750ML",
+              "cantidad": 3,
+              "uma": "UN",
+              "vol_l": 2.256,
+              "peso_kg": 1.5,
+              "retornable": false
+            },
+            {
+              "material": "VO13",
+              "denominacion": "VOLL-DAMM 1/3 RET.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 17.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": true
+            }
+          ]
+        },
+        {
+          "order": 13,
+          "cliente_id": 9100172700,
+          "cliente_nombre": "PASTISSERIA CAN GANDUXER",
+          "poblacion": "LES FRANQUESES DEL VALLÈS",
+          "lat": 41.6284802,
+          "lng": 2.2968792,
+          "entrega_l": 43.2,
+          "recogida_l": 7.2,
+          "peso_kg": 31.1,
+          "entrega_id": 828149569,
+          "materiales": [
+            {
+              "material": "0AG0183",
+              "denominacion": "VICHY CATALAN GAS 30CL RET 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.2,
+              "peso_kg": 14.1,
+              "retornable": true
+            },
+            {
+              "material": "3ENV0236",
+              "denominacion": "C.C. AGUA 1/3 VICHY-FONT D'OR",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0RF0296",
+              "denominacion": "RED BULL ENERGY DRINK 25CL LATA 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 6.0,
+              "peso_kg": 7.0,
+              "retornable": false
+            }
+          ]
+        },
+        {
+          "order": 14,
+          "cliente_id": 9100521595,
+          "cliente_nombre": "BAR?JOAN?PRIM",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6136387,
+          "lng": 2.2901251,
+          "entrega_l": 727.272,
+          "recogida_l": 642.96,
+          "peso_kg": 514.896,
+          "entrega_id": 828149580,
+          "materiales": [
+            {
+              "material": "ED13",
+              "denominacion": "ESTRELLA DAMM 1/3 RET. PP",
+              "cantidad": 7,
+              "uma": "CAJ",
+              "vol_l": 55.44,
+              "peso_kg": 119.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 7,
+              "uma": "CAJ",
+              "vol_l": 210.0,
+              "peso_kg": 70.0,
+              "retornable": true
+            },
+            {
+              "material": "ED15LN",
+              "denominacion": "ESTRELLA DAMM 1/5 LN",
+              "cantidad": 3,
+              "uma": "CAJ",
+              "vol_l": 18.0,
+              "peso_kg": 43.02,
+              "retornable": false
+            },
+            {
+              "material": "CJ15",
+              "denominacion": "CAJA DAMM+BOT.1/5RET VACIO EN P.PLAS.A13",
+              "cantidad": 3,
+              "uma": "CAJ",
+              "vol_l": 90.0,
+              "peso_kg": 30.0,
+              "retornable": true
+            },
+            {
+              "material": "FDL13",
+              "denominacion": "FREE DAMM LIMON 1/3 RET. PP",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 17.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": true
+            },
+            {
+              "material": "VE12SP",
+              "denominacion": "AGUA VERI 1/2 PET CAJA 24U. T.TH",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 12.0,
+              "peso_kg": 12.9,
+              "retornable": false
+            },
+            {
+              "material": "0RF1697",
+              "denominacion": "/-COCA COLA IMPORT LATA33 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.6,
+              "retornable": false
+            },
+            {
+              "material": "0RF1698",
+              "denominacion": "/-COCA COLA ZERO IMPORT LATA33 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.6,
+              "retornable": false
+            },
+            {
+              "material": "0ZU0032",
+              "denominacion": "JUVER NECTAR PIÑA 20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 9.0,
+              "retornable": false
+            },
+            {
+              "material": "UE902",
+              "denominacion": "COPA GRANDE ED",
+              "cantidad": 12,
+              "uma": "UN",
+              "vol_l": 21.672,
+              "peso_kg": 3.096,
+              "retornable": false
+            },
+            {
+              "material": "ED15LN",
+              "denominacion": "ESTRELLA DAMM 1/5 LN",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 12.0,
+              "peso_kg": 28.68,
+              "retornable": false
+            },
+            {
+              "material": "CJ15",
+              "denominacion": "CAJA DAMM+BOT.1/5RET VACIO EN P.PLAS.A13",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 60.0,
+              "peso_kg": 20.0,
+              "retornable": true
+            },
+            {
+              "material": "ED13",
+              "denominacion": "ESTRELLA DAMM 1/3 RET. PP",
+              "cantidad": 4,
+              "uma": "CAJ",
+              "vol_l": 31.68,
+              "peso_kg": 68.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 4,
+              "uma": "CAJ",
+              "vol_l": 120.0,
+              "peso_kg": 40.0,
+              "retornable": true
+            },
+            {
+              "material": "FD13",
+              "denominacion": "FREE DAMM 1/3 RET.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 17.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": true
+            }
+          ]
+        },
+        {
+          "order": 15,
+          "cliente_id": 9100723531,
+          "cliente_nombre": "RESTAURANTE XAP",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6088794,
+          "lng": 2.290621,
+          "entrega_l": 79.92,
+          "recogida_l": 0.0,
+          "peso_kg": 86.865,
+          "entrega_id": 828149573,
+          "materiales": [
+            {
+              "material": "NTL13LT6",
+              "denominacion": "NESTEA LIMON 1/3 LATA 4U-PACK 6U.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.625,
+              "retornable": false
+            },
+            {
+              "material": "VE32SP",
+              "denominacion": "AGUA VERI 1,5L PET CAJA 12U.",
+              "cantidad": 4,
+              "uma": "CAJ",
+              "vol_l": 72.0,
+              "peso_kg": 78.24,
+              "retornable": false
+            }
+          ]
+        },
+        {
+          "order": 16,
+          "cliente_id": 9100723531,
+          "cliente_nombre": "RESTAURANTE XAP",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6088794,
+          "lng": 2.290621,
+          "entrega_l": 62.92,
+          "recogida_l": 0.0,
+          "peso_kg": 61.225,
+          "entrega_id": 828149572,
+          "materiales": [
+            {
+              "material": "NTL13LT6",
+              "denominacion": "NESTEA LIMON 1/3 LATA 4U-PACK 6U.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.625,
+              "retornable": false
+            },
+            {
+              "material": "0AM0553",
+              "denominacion": "CHOVI SALSA BRAVA ESP PATATAS 1 KG",
+              "cantidad": 2,
+              "uma": "UN",
+              "vol_l": 7.0,
+              "peso_kg": 1.0,
+              "retornable": false
+            },
+            {
+              "material": "VE12SP",
+              "denominacion": "AGUA VERI 1/2 PET CAJA 24U. T.TH",
+              "cantidad": 4,
+              "uma": "CAJ",
+              "vol_l": 48.0,
+              "peso_kg": 51.6,
+              "retornable": false
+            }
+          ]
+        },
+        {
+          "order": 17,
+          "cliente_id": 9100678134,
+          "cliente_nombre": "FORNO DI CAFFE VIVALDI",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6039827,
+          "lng": 2.2910511,
+          "entrega_l": 36.0,
+          "recogida_l": 0.0,
+          "peso_kg": 16.4,
+          "entrega_id": 841056054,
+          "materiales": [
+            {
+              "material": "0LT0234",
+              "denominacion": "LA LEVANTINA SOJA ESPECIAL HOST 1L 6U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 6.0,
+              "peso_kg": 6.4,
+              "retornable": false
+            },
+            {
+              "material": "3ENV0029",
+              "denominacion": "C.C. CACAOLAT 30 U.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            }
+          ]
+        },
+        {
+          "order": 18,
+          "cliente_id": 9100502995,
+          "cliente_nombre": "FLECA BRETCHA (HOSPITAL)",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6039827,
+          "lng": 2.2910511,
+          "entrega_l": 60.0,
+          "recogida_l": 0.0,
+          "peso_kg": 20.0,
+          "entrega_id": 828149562,
+          "materiales": [
+            {
+              "material": "0AM1291",
+              "denominacion": "AZUCAR BLANCO BOLSITA 7GR ''BARES''1000U",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 60.0,
+              "peso_kg": 20.0,
+              "retornable": false
+            }
+          ]
+        },
+        {
+          "order": 19,
+          "cliente_id": 9100678134,
+          "cliente_nombre": "FORNO DI CAFFE VIVALDI",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6039827,
+          "lng": 2.2910511,
+          "entrega_l": 179.04,
+          "recogida_l": 7.2,
+          "peso_kg": 171.2,
+          "entrega_id": 828149576,
+          "materiales": [
+            {
+              "material": "0AG0183",
+              "denominacion": "VICHY CATALAN GAS 30CL RET 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.2,
+              "peso_kg": 14.1,
+              "retornable": true
+            },
+            {
+              "material": "3ENV0236",
+              "denominacion": "C.C. AGUA 1/3 VICHY-FONT D'OR",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": false
+            },
+            {
+              "material": "0AG0007",
+              "denominacion": "FONT D.OR NATURAL 1,5L PET 12U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 18.0,
+              "peso_kg": 19.0,
+              "retornable": false
+            },
+            {
+              "material": "0AG0004",
+              "denominacion": "FONT D.OR NATURAL 1/2 PET 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 12.0,
+              "peso_kg": 13.0,
+              "retornable": false
+            },
+            {
+              "material": "0LT0234",
+              "denominacion": "LA LEVANTINA SOJA ESPECIAL HOST 1L 6U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 6.0,
+              "peso_kg": 6.4,
+              "retornable": false
+            },
+            {
+              "material": "0LT0235",
+              "denominacion": "LA LEVANTINA AVENA ESP.HOST 1L 6U",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 12.0,
+              "peso_kg": 13.0,
+              "retornable": false
+            },
+            {
+              "material": "0LT0090",
+              "denominacion": "LETONA SEMI SIN LACTOSA 1L PET 6U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 6.0,
+              "peso_kg": 6.5,
+              "retornable": false
+            },
+            {
+              "material": "0LT0034",
+              "denominacion": "LETONA SEMI ESPEC HOSTELERIA PET 1,5L 6U",
+              "cantidad": 8,
+              "uma": "CAJ",
+              "vol_l": 72.0,
+              "peso_kg": 72.0,
+              "retornable": false
+            },
+            {
+              "material": "0RF1697",
+              "denominacion": "/-COCA COLA IMPORT LATA33 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.6,
+              "retornable": false
+            },
+            {
+              "material": "0RF1698",
+              "denominacion": "/-COCA COLA ZERO IMPORT LATA33 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.6,
+              "retornable": false
+            }
+          ]
+        },
+        {
+          "order": 20,
+          "cliente_id": 9100756365,
+          "cliente_nombre": "LAPONIA CAFE",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6039827,
+          "lng": 2.2910511,
+          "entrega_l": 61.92,
+          "recogida_l": 37.92,
+          "peso_kg": 52.8,
+          "entrega_id": 828149575,
+          "materiales": [
+            {
+              "material": "VO13",
+              "denominacion": "VOLL-DAMM 1/3 RET.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 17.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": true
+            },
+            {
+              "material": "VE12SP",
+              "denominacion": "AGUA VERI 1/2 PET CAJA 24U. T.TH",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 24.0,
+              "peso_kg": 25.8,
+              "retornable": false
+            }
+          ]
+        },
+        {
+          "order": 21,
+          "cliente_id": 118470,
+          "cliente_nombre": "SALA GRANOLLERS (TORRES) – CIRSA",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6039827,
+          "lng": 2.2910511,
+          "entrega_l": 75.84,
+          "recogida_l": 75.84,
+          "peso_kg": 54.0,
+          "entrega_id": 828149571,
+          "materiales": [
+            {
+              "material": "ED13",
+              "denominacion": "ESTRELLA DAMM 1/3 RET. PP",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 15.84,
+              "peso_kg": 34.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 60.0,
+              "peso_kg": 20.0,
+              "retornable": true
+            }
+          ]
+        },
+        {
+          "order": 22,
+          "cliente_id": 9100524060,
+          "cliente_nombre": "BAR SAN ANTONIO",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6039827,
+          "lng": 2.2910511,
+          "entrega_l": 640.8,
+          "recogida_l": 640.8,
+          "peso_kg": 453.086,
+          "entrega_id": 828149565,
+          "materiales": [
+            {
+              "material": "ED13",
+              "denominacion": "ESTRELLA DAMM 1/3 RET. PP",
+              "cantidad": 7,
+              "uma": "CAJ",
+              "vol_l": 55.44,
+              "peso_kg": 119.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 7,
+              "uma": "CAJ",
+              "vol_l": 210.0,
+              "peso_kg": 70.0,
+              "retornable": true
+            },
+            {
+              "material": "FD15",
+              "denominacion": "FREE DAMM 1/5 LN RET.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 6.0,
+              "peso_kg": 14.043,
+              "retornable": true
+            },
+            {
+              "material": "CJ15",
+              "denominacion": "CAJA DAMM+BOT.1/5RET VACIO EN P.PLAS.A13",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": true
+            },
+            {
+              "material": "XI13",
+              "denominacion": "XIBECA 5% 1/3 RET",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 15.84,
+              "peso_kg": 34.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 60.0,
+              "peso_kg": 20.0,
+              "retornable": true
+            },
+            {
+              "material": "XI13",
+              "denominacion": "XIBECA 5% 1/3 RET",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 15.84,
+              "peso_kg": 34.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 60.0,
+              "peso_kg": 20.0,
+              "retornable": true
+            },
+            {
+              "material": "ED13",
+              "denominacion": "ESTRELLA DAMM 1/3 RET. PP",
+              "cantidad": 4,
+              "uma": "CAJ",
+              "vol_l": 31.68,
+              "peso_kg": 68.0,
+              "retornable": true
+            },
+            {
+              "material": "CJ13",
+              "denominacion": "CAJA DAMM+BOT.1/3RET VACIO EN P.PLAS.A13",
+              "cantidad": 4,
+              "uma": "CAJ",
+              "vol_l": 120.0,
+              "peso_kg": 40.0,
+              "retornable": true
+            },
+            {
+              "material": "FD15",
+              "denominacion": "FREE DAMM 1/5 LN RET.",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 6.0,
+              "peso_kg": 14.043,
+              "retornable": true
+            },
+            {
+              "material": "CJ15",
+              "denominacion": "CAJA DAMM+BOT.1/5RET VACIO EN P.PLAS.A13",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 30.0,
+              "peso_kg": 10.0,
+              "retornable": true
+            }
+          ]
+        },
+        {
+          "order": 23,
+          "cliente_id": 9100495381,
+          "cliente_nombre": "QUATREPAMS",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6063964,
+          "lng": 2.2862462,
+          "entrega_l": 19.2,
+          "recogida_l": 0.0,
+          "peso_kg": 33.6,
+          "entrega_id": 828149582,
+          "materiales": [
+            {
+              "material": "0ZU0021",
+              "denominacion": "GRANINI NARANJA 20CL 24U",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 9.6,
+              "peso_kg": 16.8,
+              "retornable": false
+            },
+            {
+              "material": "0ZU0018",
+              "denominacion": "GRANINI  ARANDANOS 20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 8.4,
+              "retornable": false
+            },
+            {
+              "material": "0ZU0021",
+              "denominacion": "GRANINI NARANJA 20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 8.4,
+              "retornable": false
+            }
+          ]
+        },
+        {
+          "order": 24,
+          "cliente_id": 9100495381,
+          "cliente_nombre": "QUATREPAMS",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6063964,
+          "lng": 2.2862462,
+          "entrega_l": 133.68,
+          "recogida_l": 0.0,
+          "peso_kg": 159.84,
+          "entrega_id": 828149581,
+          "materiales": [
+            {
+              "material": "VE32SP",
+              "denominacion": "AGUA VERI 1,5L PET CAJA 12U.",
+              "cantidad": 5,
+              "uma": "CAJ",
+              "vol_l": 90.0,
+              "peso_kg": 97.8,
+              "retornable": false
+            },
+            {
+              "material": "0ZU0024",
+              "denominacion": "GRANINI PIÑA 20CL 24U",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 9.6,
+              "peso_kg": 16.8,
+              "retornable": false
+            },
+            {
+              "material": "0LT0078",
+              "denominacion": "ASTURIANA NATA MONTAR35% 1L BK",
+              "cantidad": 18,
+              "uma": "UN",
+              "vol_l": 18.0,
+              "peso_kg": 19.44,
+              "retornable": false
+            },
+            {
+              "material": "0RF0337",
+              "denominacion": "/-COCA COLA ZERO ZERO 33CL LATA 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 6.48,
+              "peso_kg": 9.0,
+              "retornable": false
+            },
+            {
+              "material": "0ZU0018",
+              "denominacion": "GRANINI  ARANDANOS 20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 8.4,
+              "retornable": false
+            },
+            {
+              "material": "0ZU0024",
+              "denominacion": "GRANINI PIÑA 20CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 4.8,
+              "peso_kg": 8.4,
+              "retornable": false
+            }
+          ]
+        },
+        {
+          "order": 25,
+          "cliente_id": 9100620561,
+          "cliente_nombre": "FORNO DI CAFFE VIVALDI",
+          "poblacion": "GRANOLLERS",
+          "lat": 41.6062763,
+          "lng": 2.2862364,
+          "entrega_l": 80.76,
+          "recogida_l": 0.0,
+          "peso_kg": 83.8,
+          "entrega_id": 828149577,
+          "materiales": [
+            {
+              "material": "0LT0235",
+              "denominacion": "LA LEVANTINA AVENA ESP.HOST 1L 6U",
+              "cantidad": 2,
+              "uma": "CAJ",
+              "vol_l": 12.0,
+              "peso_kg": 13.0,
+              "retornable": false
+            },
+            {
+              "material": "0LT0034",
+              "denominacion": "LETONA SEMI ESPEC HOSTELERIA PET 1,5L 6U",
+              "cantidad": 5,
+              "uma": "CAJ",
+              "vol_l": 45.0,
+              "peso_kg": 45.0,
+              "retornable": false
+            },
+            {
+              "material": "0RF0020",
+              "denominacion": "/-FANTA NARANJA LATA 33CL 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.6,
+              "retornable": false
+            },
+            {
+              "material": "0RF1697",
+              "denominacion": "/-COCA COLA IMPORT LATA33 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.6,
+              "retornable": false
+            },
+            {
+              "material": "0RF1698",
+              "denominacion": "/-COCA COLA ZERO IMPORT LATA33 24U",
+              "cantidad": 1,
+              "uma": "CAJ",
+              "vol_l": 7.92,
+              "peso_kg": 8.6,
+              "retornable": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

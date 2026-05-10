@@ -227,12 +227,19 @@ def enrich_with_zm040(df: pd.DataFrame, zm040: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 def mark_retornables(df: pd.DataFrame) -> pd.DataFrame:
-    """Añade `retornable` (bool) y `volumen_retornable_l` por línea."""
+    """Marca `retornable` (bool) sólo cuando la línea es una RECOGIDA real
+    (envase vacío que vuelve al depósito), no cuando el envase es reutilizable
+    pero el producto se entrega lleno.
+
+    Detección estricta por palabras en la denominación:
+    `VACIO/VACÍO`, `RETORNO`, `DEVOLUCION/DEVOLUCIÓN`, `RECOGIDA`. Una caja
+    1/3 RET llena de Estrella Damm es ENTREGA, no recogida.
+    """
     df = df.copy()
-    pattern = "|".join(config.KEYWORDS_RETORNABLES)
-    by_uma = df["uma"].isin(config.UM_RETORNABLES)
-    by_kw = df["denominacion"].fillna("").str.contains(pattern, case=False, regex=True)
-    df["retornable"] = (by_uma | by_kw).astype(bool)
+    return_pattern = r"(VAC[IÍ]OS?|RETORNO|RETORNOS|DEVOLUC[IÍ]ON|RECOGIDA)"
+    df["retornable"] = (
+        df["denominacion"].fillna("").str.contains(return_pattern, case=False, regex=True)
+    ).astype(bool)
     df["volumen_retornable_l"] = df["volumen_total_l"].where(df["retornable"], 0.0)
     return df
 
