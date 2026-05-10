@@ -2,21 +2,22 @@
 Dashboard interactivo de Streamlit para Damm Smart Truck.
 Muestra mapa de ruta, carga, insights y detalles técnicos.
 """
-
 from html import escape
 import math
 from pathlib import Path
 import sys
+# Añadir src al path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 import streamlit as st
 from src.loading_visualization import TruckVisualizer
 import folium
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import requests
 
-# Añadir src al path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from src.routing import get_route_geometry
 from src import config
 from src.config import TRUCKS
 from src.etl import build_canonical
@@ -53,12 +54,208 @@ logo_b64 = get_base64_image(logo_mini)
 st.markdown(
     f"""
 <style>
-    /* 1. FONDO BLANCO TOTAL (App, Sidebar y Cabecera) */
+    /* =========================================
+       1. ESTILOS ANTIGUOS RECUPERADOS (Métricas, Tablas, Tarjetas)
+       ========================================= */
+    .main-header {{
+        font-size: 2.4rem;
+        font-weight: 800;
+        color: #0f172a;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.25rem;
+    }}
+    .sub-header {{
+        color: #475569;
+        margin-top: 0;
+        margin-bottom: 1rem;
+    }}
+    .hero-card {{
+        background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+        border: 1px solid #dbeafe;
+        border-radius: 18px;
+        padding: 1rem 1.1rem;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+        margin-bottom: 0.75rem;
+    }}
+    .section-title {{
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-top: 0.4rem;
+        margin-bottom: 0.4rem;
+    }}
+    .muted {{ color: #64748b; }}
+    .badge {{
+        display: inline-block;
+        color: white;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        margin-right: 0.35rem;
+    }}
+    .route-wrap {{ width: 100%; }}
+    .route-table {{
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.92rem;
+        table-layout: fixed;
+    }}
+    .route-table th, .route-table td {{
+        border: 1px solid #e2e8f0;
+        vertical-align: top;
+        padding: 0.7rem;
+    }}
+    .route-table th {{
+        background: #0f172a;
+        color: white;
+        text-align: left;
+    }}
+    .route-table tr:nth-child(even) {{ background: #f8fafc; }}
+    .route-table td.num {{
+        text-align: center;
+        font-weight: 800;
+        width: 48px;
+    }}
+    .item-section {{ margin-bottom: 0.2rem; }}
+    .section-head {{ margin-bottom: 0.45rem; }}
+    .item-grid {{
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 0.45rem;
+    }}
+    .item-chip {{
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 0.55rem 0.65rem;
+        box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
+    }}
+    .item-title {{
+        font-weight: 800;
+        color: #0f172a;
+        font-size: 0.88rem;
+    }}
+    .item-desc {{
+        color: #334155;
+        font-size: 0.8rem;
+        margin-top: 0.15rem;
+    }}
+    .item-meta {{
+        color: #64748b;
+        font-size: 0.78rem;
+        margin-top: 0.2rem;
+    }}
+    .item-empty {{
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }}
+    .item-muted {{ color: #94a3b8; font-size: 0.82rem; }}
+    .map-card {{
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        padding: 0.4rem;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+    }}
+    .kpi-grid {{
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 0.8rem;
+    }}
+    .kpi {{
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 0.9rem;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+    }}
+    .kpi .label {{ color: #64748b; font-size: 0.78rem; font-weight: 700; }}
+    .kpi .value {{ font-size: 1.55rem; font-weight: 800; color: #0f172a; margin-top: 0.15rem; }}
+    .kpi .caption {{ color: #475569; font-size: 0.8rem; margin-top: 0.2rem; }}
+    .loading-map-grid {{
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 0.9rem;
+        margin-top: 0.9rem;
+    }}
+    .loading-map-card {{
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        padding: 0.9rem;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+    }}
+    .loading-map-title {{
+        font-size: 1rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 0.15rem;
+    }}
+    .loading-map-subtitle {{
+        color: #64748b;
+        font-size: 0.78rem;
+        margin-bottom: 0.75rem;
+    }}
+    .seat-grid {{
+        display: grid;
+        gap: 0.5rem;
+    }}
+    .seat-cell {{
+        min-height: 78px;
+        border-radius: 14px;
+        padding: 0.55rem 0.6rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        border: 1px solid rgba(255, 255, 255, 0.68);
+        box-shadow: inset 0 -18px 24px rgba(255, 255, 255, 0.11);
+        color: white;
+    }}
+    .seat-cell.empty {{
+        background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%);
+        color: #334155;
+        border-color: #e2e8f0;
+        box-shadow: inset 0 -16px 20px rgba(255, 255, 255, 0.25);
+    }}
+    .seat-cell .slot-num {{
+        font-size: 0.92rem;
+        font-weight: 800;
+        line-height: 1;
+    }}
+    .seat-cell .slot-pct {{
+        font-size: 0.8rem;
+        font-weight: 700;
+        opacity: 0.95;
+    }}
+    .seat-cell .slot-main {{
+        font-size: 0.72rem;
+        line-height: 1.15;
+        opacity: 0.95;
+    }}
+    .seat-cell .slot-meta {{
+        font-size: 0.68rem;
+        opacity: 0.8;
+    }}
+    .map-pill {{
+        display: inline-block;
+        background: #dbeafe;
+        color: #1e3a8a;
+        border-radius: 999px;
+        padding: 0.16rem 0.55rem;
+        font-size: 0.72rem;
+        font-weight: 800;
+        margin-right: 0.35rem;
+    }}
+
+    /* =========================================
+       2. TUS ESTILOS NUEVOS DAMM (Fondos, logo girando, etc.)
+       ========================================= */
     .stApp, [data-testid="stSidebar"], [data-testid="stHeader"], [data-testid="stToolbar"] {{
         background-color: #ffffff !important;
     }}
 
-    /* 2. SUBIR EL LOGO DE LA BARRA LATERAL (logo_cuadrado) */
     [data-testid="stSidebarHeader"] {{
         padding-top: 0rem !important;
         margin-top: -2.8rem !important;
@@ -68,7 +265,6 @@ st.markdown(
         padding-top: 0rem !important;
     }}
 
-    /* BOTÓN PRIMARIO ROJO DAMM */
     div.stButton > button[kind="primary"] {{
         background-color: #E20613 !important;
         color: #FFFFFF !important;
@@ -80,12 +276,10 @@ st.markdown(
         border-color: #B8050F !important;
     }}
 
-    /* 3. SUBIR EL CONTENIDO PRINCIPAL */
     .block-container {{
         padding-top: 2rem !important;
     }}
 
-    /* 4. ESTILO DAMM PARA MÉTRICAS */
     [data-testid="stMetricValue"] {{
         color: #E20613 !important;
         font-weight: 800;
@@ -98,13 +292,10 @@ st.markdown(
         border-radius: 10px;
     }}
 
-    /* 5. LOGO GIRANDO (Adiós a los muñequitos haciendo ejercicio) */
-    /* Ocultamos el contenido original de Streamlit */
     [data-testid="stStatusWidget"] > div {{
         display: none !important;
     }}
     
-    /* Creamos el nuevo bloque con el logo en base64 y la animación */
     [data-testid="stStatusWidget"]::before {{
         content: "";
         display: block;
@@ -114,11 +305,10 @@ st.markdown(
         background-size: contain;
         background-repeat: no-repeat;
         background-position: center;
-        animation: spin 1.2s linear infinite; /* Tiempo que tarda en dar una vuelta completa */
-        border-radius: 8px; /* Redondea los bordes si quieres efecto moneda */
+        animation: spin 1.2s linear infinite; 
+        border-radius: 8px; 
     }}
 
-    /* Animación de 360 grados continua */
     @keyframes spin {{
         0% {{ transform: rotate(0deg); }}
         100% {{ transform: rotate(360deg); }}
@@ -210,6 +400,23 @@ def _render_items_html(items: list[dict], title: str, accent: str) -> str:
         f"<div class='item-grid'>{''.join(blocks)}</div></div>"
     )
 
+def get_osrm_route_geometry(coords: list[list[float]]) -> list[list[float]] | None:
+    """Obtiene la ruta real por carreteras usando la API pública de OSRM."""
+    try:
+        coords_str = ";".join([f"{lng},{lat}" for lat, lng in coords])
+        # Añadimos continue_straight=true para evitar U-turns raros en las paradas
+        url = f"https://router.project-osrm.org/route/v1/driving/{coords_str}?overview=full&geometries=geojson&continue_straight=true"
+        
+        response = requests.get(url, timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("code") == "Ok":
+                geom = data["routes"][0]["geometry"]["coordinates"]
+                return [[lat, lng] for lng, lat in geom]
+    except Exception as e:
+        print(f"Error obteniendo geometría de ruta: {e}")
+        
+    return None
 
 def _build_route_map_html(stops_data: list[dict]) -> str:
     route_map = folium.Map(
@@ -226,11 +433,31 @@ def _build_route_map_html(stops_data: list[dict]) -> str:
         icon=folium.Icon(color="red", icon="industry", prefix="fa"),
     ).add_to(route_map)
 
-    coords = [[config.DEPOT_LAT, config.DEPOT_LNG]]
+    # Coordenadas exactas para calcular la ruta por carretera
+    routing_coords = [[config.DEPOT_LAT, config.DEPOT_LNG]]
+    
+    # Diccionario para rastrear coordenadas duplicadas
+    seen_coords = {}
+
     for stop in stops_data:
-        lat = float(stop.get("lat", 0) or 0)
-        lng = float(stop.get("lng", 0) or 0)
-        coords.append([lat, lng])
+        lat_real = float(stop.get("lat", 0) or 0)
+        lng_real = float(stop.get("lng", 0) or 0)
+        
+        # Ignorar coordenadas (0,0) en caso de que un geocoding fallara por completo
+        if lat_real == 0 and lng_real == 0:
+            continue
+            
+        routing_coords.append([lat_real, lng_real])
+        
+        # --- SOLUCIÓN A PARADAS SOLAPADAS ---
+        coord_key = (round(lat_real, 4), round(lng_real, 4))
+        offset_count = seen_coords.get(coord_key, 0)
+        seen_coords[coord_key] = offset_count + 1
+        
+        # Si ya hay una parada ahí, le sumamos un micro-desplazamiento visual (aprox 15 metros)
+        lat_display = lat_real + (offset_count * 0.00015)
+        lng_display = lng_real + (offset_count * 0.00015)
+
         order = int(stop.get("order", 0))
         cliente = escape(str(stop.get("cliente_nombre", f"Parada {order}")))
         poblacion = escape(str(stop.get("poblacion", "")))
@@ -239,20 +466,35 @@ def _build_route_map_html(stops_data: list[dict]) -> str:
             f"{poblacion}<br>"
             f"Entrega: {float(stop.get('entrega_l', 0)):.0f} L · Recogida: {float(stop.get('recogida_l', 0)):.0f} L"
         )
+        
+        # Pintamos de MORADO las paradas desplazadas para que sepas que en realidad comparten edificio con la anterior
+        bg_color = "#1d4ed8" if offset_count == 0 else "#9333ea" 
+        
         folium.Marker(
-            [lat, lng],
+            [lat_display, lng_display],
             tooltip=f"{order}. {stop.get('cliente_nombre', '')}",
             popup=popup,
             icon=folium.DivIcon(
                 html=f"""
-                <div style='width:30px;height:30px;border-radius:50%;background:#1d4ed8;color:white;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.25);font-weight:700;font-size:12px;'>
+                <div style='width:30px;height:30px;border-radius:50%;background:{bg_color};color:white;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.25);font-weight:700;font-size:12px;'>
                     {order}
                 </div>"""
             ),
         ).add_to(route_map)
 
-    if len(coords) > 1:
-        folium.PolyLine(coords, color="#2563eb", weight=5, opacity=0.9).add_to(route_map)
+    if len(routing_coords) > 1:
+        route_geom = get_osrm_route_geometry(routing_coords)
+        
+        if route_geom:
+            folium.PolyLine(
+                route_geom, 
+                color="#2563eb", 
+                weight=5, 
+                opacity=0.8,
+                tooltip="Ruta por carretera"
+            ).add_to(route_map)
+        else:
+            folium.PolyLine(routing_coords, color="#ef4444", weight=5, opacity=0.8, dash_array="10").add_to(route_map)
 
     return route_map.get_root().render()
 
@@ -435,88 +677,128 @@ def _render_4_cage_container(slots: list[dict], cols_per_cage: int, truck_code: 
     </div>
     """
 
+def _get_item_style_and_icon(uma: str) -> tuple[str, str]:
+    """Asigna estilo visual y emoji según el tipo de unidad de carga."""
+    uma = str(uma).upper()
+    if uma in ["BRL", "BID"]: 
+        return "type-barril", "🛢️" # Icono de barril
+    if uma in ["CAJ", "EST", "PQ"]: 
+        return "type-caja", "📦"   # Icono de caja
+    if uma in ["BOT", "PAK", "TB", "UN"]: 
+        return "type-botella", "🥤" # Icono de bebidas
+    return "type-otro", "🧊"
 
 def _build_loading_maps_html(plan: dict, truck_code: str, truck_capacity_l: int) -> str:
-    truck_spec = TRUCKS.get(truck_code, {})
+    truck_spec = config.TRUCKS.get(truck_code, {})
     palets = max(1, int(truck_spec.get("palets", 1) or 1))
 
     assignment = _build_slot_assignment(plan, truck_capacity_l, truck_code)
     slots = assignment["slots"]
+    slot_cap = assignment["slot_capacity_l"]
 
-    # Top: organizamos palets en filas/columnas y además mostramos el contenedor 4-jaulas
-    cols_per_cage = max(1, math.ceil(palets / 4))
-    container_html = _render_4_cage_container(slots, cols_per_cage, truck_code)
+    # Lógica de Jaulas: Dividimos el espacio en 4 compartimentos visuales
+    num_jaulas = 4 if palets >= 4 else palets
+    jaulas = [[] for _ in range(num_jaulas)]
+    for i, slot in enumerate(slots):
+        idx_j = min(num_jaulas - 1, i * num_jaulas // len(slots))
+        jaulas[idx_j].append(slot)
 
-    # Lateral: fila única con todos los palets
-    lateral_cells = []
-    for idx, slot in enumerate(slots):
-        fill = slot.get("fill_ratio", 0.0)
-        bg = _slot_fill_color(fill)
-        fg = _slot_text_color(fill)
-        main = escape(slot.get("main_label", "VACÍO"))
-        vol = float(slot.get("vol_l", 0) or 0)
-        items_n = len(slot.get("items", []) or [])
-        lateral_cells.append(f"<div class='seat-cell' style='background:{bg}; color:{fg}; min-width:78px; margin-right:6px;'><div class='slot-num'>{idx+1}</div><div class='slot-main'>{main}</div><div class='slot-meta'>{vol:.0f} L</div></div>")
+    # --- VISTA LATERAL (Perfil del camión con Cabina y Ruedas) ---
+    lateral_html = ""
+    for j_idx, contenido_jaula in enumerate(jaulas):
+        columnas_html = ""
+        for slot in contenido_jaula:
+            items_html = ""
+            for item in slot["items"]:
+                uma = _extract_uma(item.get("name", ""))
+                estilo, icono = _get_item_style_and_icon(uma)
+                vol = float(item.get("vol_l", 0) or 0)
+                # Altura proporcional al volumen (mínimo 15% para que sea clicable)
+                h_pct = min(100, max(15, (vol / slot_cap) * 100)) if slot_cap else 15
+                
+                items_html += f'''
+                <div class="item-cargo {estilo}" style="height:{h_pct}%;">
+                    <span style="font-size:16px;">{icono}</span>
+                    <span class="cargo-txt">{vol:.0f}L</span>
+                </div>'''
+            
+            columnas_html += f'<div class="slot-column">{items_html or "<div class=\'empty-txt\'>VACÍO</div>"}</div>'
+        lateral_html += f'<div class="jaula-compartimento">{columnas_html}</div>'
 
-    # Listas de carga/descarga: heurística simple LIFO
-    # Descarga (orden de descarga): slots con items cuyo stop más alto primero
-    slot_unload = []
-    for idx, slot in enumerate(slots):
-        max_stop = 0
-        for it in slot.get('items', []) or []:
-            if isinstance(it.get('stops', None), (list, tuple)) and it.get('stops'):
-                max_stop = max(max_stop, max([int(s) for s in it.get('stops') if isinstance(s, int) or (isinstance(s,str) and s.isdigit())]))
-        slot_unload.append((idx, max_stop))
+    # --- VISTA SUPERIOR (Top-down) ---
+    superior_html = ""
+    for j_idx, contenido_jaula in enumerate(jaulas):
+        bloques_top = ""
+        for slot in contenido_jaula:
+            fill = slot.get("fill_ratio", 0) * 100
+            uma_top = _extract_uma(slot.get("main", {}).get("uma", "")) if slot.get("main") else ""
+            estilo_top, icono_top = _get_item_style_and_icon(uma_top)
+            
+            bloques_top += f'''
+            <div class="top-block {estilo_top if fill > 0 else 'empty-block'}">
+                <div style="font-size:22px;">{icono_top if fill > 0 else ''}</div>
+                <div class="top-txt"><b>{escape(slot.get("main_label", "VACÍO"))}</b></div>
+                <div class="top-sub">{slot.get("vol_l", 0):.0f}L ({fill:.0f}%)</div>
+            </div>'''
+        superior_html += f'<div class="jaula-top">{bloques_top}</div>'
 
-    # Descargar: highest stop number first (furthest client unloaded first)
-    slot_unload_sorted = sorted(slot_unload, key=lambda x: x[1], reverse=True)
-    unload_html_items = []
-    load_html_items = []
-    for order_idx, (slot_idx, stop_val) in enumerate(slot_unload_sorted, 1):
-        unload_html_items.append(f"<li><b>Bloque {slot_idx+1}</b> · parada {stop_val or '-'} </li>")
+    # --- CSS Y ENSAMBLAJE ---
+    return f"""
+    <style>
+        .truck-container {{ display: flex; align-items: flex-end; padding: 20px 0; margin-bottom: 40px; }}
+        .cabina {{ width: 80px; height: 160px; background: #E20613; border: 4px solid #1e293b; border-radius: 20px 5px 5px 5px; position: relative; }}
+        .ventana {{ background: #cbd5e1; height: 60px; margin: 15px 10px; border-radius: 10px 5px 0 0; border: 2px solid #1e293b; }}
+        
+        .caja-carga {{ flex: 1; height: 250px; background: #f8fafc; border: 4px solid #1e293b; border-left: none; display: flex; position: relative; }}
+        .jaula-compartimento {{ flex: 1; border-right: 3px dashed #94a3b8; display: flex; padding: 10px; gap: 8px; }}
+        .jaula-compartimento:last-child {{ border-right: none; }}
+        
+        .slot-column {{ flex: 1; display: flex; flex-direction: column-reverse; background: rgba(226, 232, 240, 0.5); border-radius: 8px; padding: 5px; gap: 4px; }}
+        .item-cargo {{ display: flex; align-items: center; justify-content: center; color: white; border-radius: 6px; border: 1px solid rgba(0,0,0,0.2); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        .type-caja {{ background: linear-gradient(135deg, #16a34a, #15803d); }}
+        .type-barril {{ background: linear-gradient(135deg, #dc2626, #991b1b); border-radius: 10px; }}
+        .type-botella {{ background: linear-gradient(135deg, #2563eb, #1d4ed8); }}
+        .cargo-txt {{ font-size: 10px; font-weight: bold; margin-left: 2px; }}
+        
+        .ruedas-box {{ position: absolute; bottom: -25px; width: 100%; display: flex; justify-content: space-around; }}
+        .rueda {{ width: 45px; height: 45px; background: #334155; border: 5px solid #0f172a; border-radius: 50%; }}
+        
+        .top-view {{ display: flex; background: #94a3b8; padding: 15px; border-radius: 12px; gap: 10px; border: 4px solid #334155; }}
+        .jaula-top {{ flex: 1; display: flex; gap: 8px; background: white; padding: 8px; border-radius: 8px; border: 2px dashed #cbd5e1; }}
+        .top-block {{ flex: 1; height: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 6px; color: white; }}
+        .empty-block {{ background: #f1f5f9; border: 2px dashed #cbd5e1; color: #94a3b8; }}
+        .top-txt {{ font-size: 11px; margin-top: 5px; text-align: center; }}
+        .top-sub {{ font-size: 10px; opacity: 0.8; }}
+    </style>
 
-    # Carga: reverso (first loaded -> lowest stop first)
-    for order_idx, (slot_idx, stop_val) in enumerate(reversed(slot_unload_sorted), 1):
-        load_html_items.append(f"<li><b>Bloque {slot_idx+1}</b> · prioridad {order_idx}</li>")
-
-    total_vol = sum(float(slot.get("vol_l", 0) or 0) for slot in slots)
-    total_weight = sum(float(slot.get("peso_kg", 0) or 0) for slot in slots)
-    utilization = (total_vol / truck_capacity_l * 100) if truck_capacity_l else 0.0
-
-    full_html = f"""
-    <div>
-      <div class="hero-card">
-        <div class="section-title">📦 Plan de carga - {truck_code}</div>
-        <div class="loading-map-subtitle">Contenedor dividido en 4 jaulas (izquierda→derecha). Cada bloque numerado representa 1/{palets} parte del camión.</div>
-        <div style='margin-bottom:12px;'>
-            {container_html}
-        </div>
-        <div style='margin-top:8px;'>
-            <div style='font-weight:800; margin-bottom:6px;'>Vista Lateral</div>
-            <div style='display:flex; align-items:center;'>{''.join(lateral_cells)}</div>
-        </div>
-        <div style='margin-top:12px; display:flex; gap:12px;'>
-            <div style='flex:1; background:#fff; border:1px solid #e2e8f0; padding:12px; border-radius:12px;'>
-                <div style='font-weight:800; margin-bottom:8px;'>Orden de Carga</div>
-                <ol>{''.join(load_html_items) or '<li>Sin asignaciones</li>'}</ol>
+    <div class="hero-card">
+        <h3 style="color:#0f172a; margin-bottom:5px;">🚛 Plan de Carga Visual: {truck_code}</h3>
+        <p style="color:#64748b; font-size:0.9em; margin-bottom:25px;">Distribución por jaulas y apilamiento real de productos.</p>
+        
+        <h4 style="color:#475569;">Vista Lateral (Perfil)</h4>
+        <div class="truck-container">
+            <div class="cabina"><div class="ventana"></div></div>
+            <div class="caja-carga">
+                {lateral_html}
+                <div class="ruedas-box">
+                    <div class="rueda"></div><div class="rueda"></div><div class="rueda"></div>
+                </div>
             </div>
-            <div style='flex:1; background:#fff; border:1px solid #e2e8f0; padding:12px; border-radius:12px;'>
-                <div style='font-weight:800; margin-bottom:8px;'>Orden de Descarga</div>
-                <ol>{''.join(unload_html_items) or '<li>Sin asignaciones</li>'}</ol>
-            </div>
         </div>
-        <div style='margin-top:12px;' class='kpi-grid'>
-            <div class='kpi'><div class='label'>Capacidad</div><div class='value'>{palets}P</div><div class='caption'>{truck_capacity_l} L</div></div>
-            <div class='kpi'><div class='label'>Volumen asignado</div><div class='value'>{total_vol:.0f} L</div><div class='caption'>{utilization:.1f}% del camión</div></div>
-            <div class='kpi'><div class='label'>Peso asignado</div><div class='value'>{total_weight:.0f} kg</div><div class='caption'>Distribuido en bloques</div></div>
-            <div class='kpi'><div class='label'>Bloques</div><div class='value'>{len(slots)}</div><div class='caption'>Mapa se adapta al vehículo</div></div>
+
+        <h4 style="color:#475569; margin-top:20px;">Vista Superior (Distribución de Planta)</h4>
+        <div class="top-view">
+            <div style="width:70px; background:#E20613; border-radius:8px; border:3px solid #334155;"></div>
+            <div style="display:flex; flex:1; gap:10px;">{superior_html}</div>
         </div>
-      </div>
+
+        <div style="margin-top:30px;" class="kpi-grid">
+            <div class="kpi"><div class="label">Capacidad</div><div class="value">{palets}P</div><div class="caption">{truck_capacity_l}L</div></div>
+            <div class="kpi"><div class="label">Ocupación</div><div class="value">{((sum(s['vol_l'] for s in slots)/truck_capacity_l)*100):.1f}%</div><div class="caption">Carga dinámica</div></div>
+            <div class="kpi"><div class="label">Peso</div><div class="value">{sum(s['peso_kg'] for s in slots):.0f}kg</div><div class="caption">Seguridad vial</div></div>
+        </div>
     </div>
     """
-
-    return full_html
-
 
 def _build_seat_map_html(title: str, subtitle: str, slots: list[dict], rows: int, cols: int, truck_code: str) -> str:
     cell_html = []
