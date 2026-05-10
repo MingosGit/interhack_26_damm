@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -24,7 +25,11 @@ from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 from src import config, distance_matrix, horarios as horarios_mod
 from src.exceptions import DammSmartTruckError
 from src.insights import analyze_route, format_insights_for_terminal
-from src.loading_visualization import visualize_loading_plan, format_loading_plan_for_terminal
+from src.loading_visualization import (
+    visualize_loading_plan,
+    format_loading_plan_for_terminal,
+    export_loading_plan_html,
+)
 
 
 @dataclass
@@ -732,7 +737,7 @@ def _route_snapshot(transporte_id: int, truck: str, mode: str, payload: dict[str
     return str(path)
 
 
-def _print_route_summary_single(payload: dict[str, Any]) -> None:
+def _print_route_summary_single(payload: dict[str, Any], loading_html_path: str | None = None) -> None:
     """Imprime en terminal un resumen COMPLETO con insights, visualización y recomendaciones."""
     print("\n" + "="*90)
     print("SOLUCION OPTIMIZADA: RUTA SINGLE TRUCK")
@@ -772,8 +777,15 @@ def _print_route_summary_single(payload: dict[str, Any]) -> None:
     
     # ===== BLOQUE 3: VISUALIZACIÓN DE CARGA =====
     print("\n" + "="*90)
-    loading_plan = visualize_loading_plan(stops, payload.get('truck_capacity_l', 14400))
+    loading_plan = visualize_loading_plan(stops, int(payload.get('truck_capacity_l', 14400)))
     print(format_loading_plan_for_terminal(loading_plan))
+    if loading_html_path:
+        out_html = export_loading_plan_html(
+            loading_plan,
+            output_path=loading_html_path,
+            title=f"Plan de carga - Transporte {payload['transporte']} ({payload['truck']})",
+        )
+        print(f"\n[HTML] Visualizacion de carga exportada en: {out_html}")
     
     # ===== BLOQUE 4: INSIGHTS Y RECOMENDACIONES =====
     print("\n" + "="*90)
@@ -794,7 +806,7 @@ def _print_route_summary_single(payload: dict[str, Any]) -> None:
     print("="*90 + "\n")
 
 
-def _print_route_summary_fleet(payload: dict[str, Any]) -> None:
+def _print_route_summary_fleet(payload: dict[str, Any], loading_html_path: str | None = None) -> None:
     """Imprime en terminal un resumen de FLOTA con insights agregados."""
     print("\n" + "="*90)
     print("SOLUCION OPTIMIZADA: FLOTA MULTI-VEHICULO")
@@ -824,6 +836,15 @@ def _print_route_summary_fleet(payload: dict[str, Any]) -> None:
     
     # Insights agregados
     if all_stops:
+        loading_plan = visualize_loading_plan(all_stops, int(payload.get('truck_capacity_l', 14400)))
+        if loading_html_path:
+            out_html = export_loading_plan_html(
+                loading_plan,
+                output_path=loading_html_path,
+                title=f"Plan de carga flota - Transporte {payload['transporte']} ({payload['truck']})",
+            )
+            print(f"\n[HTML] Visualizacion de carga flota exportada en: {out_html}")
+
         print("\n" + "="*90)
         insight = analyze_route(
             transporte_id=payload['transporte'],
@@ -842,12 +863,59 @@ def _print_route_summary_fleet(payload: dict[str, Any]) -> None:
     print("="*90 + "\n")
 
 
+def _print_explainability_single(sol: Solution, stops: list[Stop], explain_lang: str) -> dict[str, str]:
+    try:
+        from src.explain import explain_solution
+        explanations = explain_solution(sol, stops, aspect="all", language=explain_lang)
+    except Exception as exc:
+        logger.warning("No se pudo generar explicabilidad (single): {}", exc)
+        return {}
+
+    print("\n" + "=" * 90)
+    print("EXPLICABILIDAD DE LA SOLUCION")
+    print("=" * 90)
+    if explanations.get("route"):
+        print("\n[ROUTE EXPLANATION]")
+        print(explanations["route"])
+    if explanations.get("packaging"):
+        print("\n[PACKAGING EXPLANATION]")
+        print(explanations["packaging"])
+    print("=" * 90 + "\n")
+    return explanations
+
+
+def _print_explainability_fleet(sol: FleetSolution, stops: list[Stop], explain_lang: str) -> dict[str, Any]:
+    try:
+        from src.explain import explain_fleet_solution
+        explanations = explain_fleet_solution(sol, stops, language=explain_lang)
+    except Exception as exc:
+        logger.warning("No se pudo generar explicabilidad (fleet): {}", exc)
+        return {}
+
+    print("\n" + "=" * 90)
+    print("EXPLICABILIDAD DE FLOTA")
+    print("=" * 90)
+    if explanations.get("fleet"):
+        print("\n[FLEET EXPLANATION]")
+        print(explanations["fleet"])
+    routes_text = explanations.get("routes", [])
+    if routes_text:
+        print("\n[ROUTES SUMMARY]")
+        for row in routes_text:
+            print(f"  - {row}")
+    print("=" * 90 + "\n")
+    return explanations
+
+
 def run_for_transporte(
     transporte_id: int,
     truck: str = "6P",
     time_limit_s: int = 20,
     use_time_windows: bool = False,
     use_pickup_delivery: bool = False,
+    explain: bool = False,
+    explain_lang: str = "es",
+    loading_html: str | None = None,
 ) -> dict:
     canonical = pd.read_parquet(config.CANONICAL_PARQUET)
     geo = pd.read_parquet(config.GEOCODING_PARQUET)
@@ -943,7 +1011,20 @@ def run_for_transporte(
     }
     snapshot_path = _route_snapshot(transporte_id, truck, "single", snapshot_payload)
     # print(f"\nSnapshot ruta guardado en: {snapshot_path}")
-    _print_route_summary_single(snapshot_payload)
+    if loading_html == "auto":
+        default_html = str(config.CACHE_DIR / f"loading_plan_{transporte_id}_{truck}_single.html")
+    elif isinstance(loading_html, str) and loading_html:
+        default_html = loading_html
+    else:
+        default_html = None
+    _print_route_summary_single(snapshot_payload, loading_html_path=default_html)
+
+    explanations: dict[str, str] = {}
+    if explain:
+        explanations = _print_explainability_single(sol, stops, explain_lang)
+
+    # Calcular peso total
+    total_peso_kg = sum(s.peso_kg for s in sol.ordered_stops)
 
     return {
         "transporte": transporte_id,
@@ -954,6 +1035,13 @@ def run_for_transporte(
         "status": sol.status,
         "carga_viva_max_l": sol.carga_viva_max_l,
         "total_retornable_l": sol.total_retornable_l,
+        "entrega_total_l": total_entrega,
+        "recogida_total_l": total_recogida,
+        "peso_kg": total_peso_kg,
+        "snapshot_path": snapshot_path,
+        "snapshot_payload": snapshot_payload,
+        "loading_html_path": default_html,
+        "explanations": explanations,
     }
 
 
@@ -963,6 +1051,9 @@ def run_for_fleet(
     truck: str = "6P",
     time_limit_s: int = 20,
     use_time_windows: bool = False,
+    explain: bool = False,
+    explain_lang: str = "es",
+    loading_html: str | None = None,
 ) -> dict:
     """Ejecuta solve_fleet para un transporte, usando n_vehicles camiones.
 
@@ -1064,6 +1155,8 @@ def run_for_fleet(
             "opt_dist_m": sol.total_distance_m,
             "delta_time_pct": round(pct_t, 3),
             "delta_dist_pct": round(pct_d, 3),
+            "entrega_total_l": round(sum(s.volumen_l for s in stops), 3),
+            "recogida_total_l": round(sum(s.volumen_retornable_l for s in stops), 3),
         },
         "routes": [],
     }
@@ -1095,7 +1188,22 @@ def run_for_fleet(
         })
     fleet_snapshot_path = _route_snapshot(transporte_id, truck, "fleet", fleet_snapshot_payload)
     # print(f"\nSnapshot flota guardado en: {fleet_snapshot_path}")
-    _print_route_summary_fleet(fleet_snapshot_payload)
+    if loading_html == "auto":
+        default_html = str(config.CACHE_DIR / f"loading_plan_{transporte_id}_{truck}_fleet.html")
+    elif isinstance(loading_html, str) and loading_html:
+        default_html = loading_html
+    else:
+        default_html = None
+    _print_route_summary_fleet(fleet_snapshot_payload, loading_html_path=default_html)
+
+    explanations: dict[str, Any] = {}
+    if explain:
+        explanations = _print_explainability_fleet(sol, stops, explain_lang)
+
+    # Calcular totales de toda la flota
+    total_entrega_fleet = sum(s.volumen_l for s in stops)
+    total_recogida_fleet = sum(s.volumen_retornable_l for s in stops)
+    total_peso_fleet = sum(s.peso_kg for s in stops)
 
     return {
         "transporte": transporte_id,
@@ -1107,6 +1215,13 @@ def run_for_fleet(
         "delta_time_pct": pct_t, "delta_dist_pct": pct_d,
         "status": sol.status,
         "routes_count": len(sol.routes),
+        "entrega_total_l": total_entrega_fleet,
+        "recogida_total_l": total_recogida_fleet,
+        "peso_kg": total_peso_fleet,
+        "snapshot_path": fleet_snapshot_path,
+        "snapshot_payload": fleet_snapshot_payload,
+        "loading_html_path": default_html,
+        "explanations": explanations,
     }
 
 
@@ -1120,16 +1235,26 @@ def _main() -> None:
     parser.add_argument("--time-limit", type=int, default=20)
     parser.add_argument("--time-windows", action="store_true")
     parser.add_argument("--reverse-logistics", action="store_true")
+    parser.add_argument("--explain", action="store_true",
+                        help="Genera explicabilidad automatica (LLM o fallback)")
+    parser.add_argument("--explain-lang", default="es", choices=["es", "en"],
+                        help="Idioma de explicabilidad")
+    parser.add_argument("--loading-html", default=None,
+                        help="Ruta HTML de visualizacion de carga. Usa 'auto' para cache/...")
     args = parser.parse_args()
 
     if args.fleet is not None:
         run_for_fleet(args.transport, n_vehicles=args.fleet, truck=args.truck,
-                      time_limit_s=args.time_limit, use_time_windows=args.time_windows)
+                      time_limit_s=args.time_limit, use_time_windows=args.time_windows,
+                      explain=args.explain, explain_lang=args.explain_lang,
+                      loading_html=args.loading_html)
     else:
         run_for_transporte(args.transport, truck=args.truck,
                            time_limit_s=args.time_limit,
                            use_time_windows=args.time_windows,
-                           use_pickup_delivery=args.reverse_logistics)
+                           use_pickup_delivery=args.reverse_logistics,
+                           explain=args.explain, explain_lang=args.explain_lang,
+                           loading_html=args.loading_html)
 
 
 if __name__ == "__main__":

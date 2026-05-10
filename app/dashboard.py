@@ -4,9 +4,11 @@ Muestra mapa de ruta, carga, insights y detalles técnicos.
 """
 
 from html import escape
+import math
 from pathlib import Path
 import sys
-
+import streamlit as st
+from src.loading_visualization import TruckVisualizer
 import folium
 import pandas as pd
 import plotly.graph_objects as go
@@ -19,6 +21,8 @@ from src import config
 from src.config import TRUCKS
 from src.etl import build_canonical
 from src.loading_visualization import visualize_loading_plan
+import os
+from src.routing import get_route_geometry
 from src.vrp_solver import run_for_fleet, run_for_transporte
 
 
@@ -150,6 +154,80 @@ st.markdown(
     .kpi .label { color: #64748b; font-size: 0.78rem; font-weight: 700; }
     .kpi .value { font-size: 1.55rem; font-weight: 800; color: #0f172a; margin-top: 0.15rem; }
     .kpi .caption { color: #475569; font-size: 0.8rem; margin-top: 0.2rem; }
+    .loading-map-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 0.9rem;
+        margin-top: 0.9rem;
+    }
+    .loading-map-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        padding: 0.9rem;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+    }
+    .loading-map-title {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 0.15rem;
+    }
+    .loading-map-subtitle {
+        color: #64748b;
+        font-size: 0.78rem;
+        margin-bottom: 0.75rem;
+    }
+    .seat-grid {
+        display: grid;
+        gap: 0.5rem;
+    }
+    .seat-cell {
+        min-height: 78px;
+        border-radius: 14px;
+        padding: 0.55rem 0.6rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        border: 1px solid rgba(255, 255, 255, 0.68);
+        box-shadow: inset 0 -18px 24px rgba(255, 255, 255, 0.11);
+        color: white;
+    }
+    .seat-cell.empty {
+        background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%);
+        color: #334155;
+        border-color: #e2e8f0;
+        box-shadow: inset 0 -16px 20px rgba(255, 255, 255, 0.25);
+    }
+    .seat-cell .slot-num {
+        font-size: 0.92rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+    .seat-cell .slot-pct {
+        font-size: 0.8rem;
+        font-weight: 700;
+        opacity: 0.95;
+    }
+    .seat-cell .slot-main {
+        font-size: 0.72rem;
+        line-height: 1.15;
+        opacity: 0.95;
+    }
+    .seat-cell .slot-meta {
+        font-size: 0.68rem;
+        opacity: 0.8;
+    }
+    .map-pill {
+        display: inline-block;
+        background: #dbeafe;
+        color: #1e3a8a;
+        border-radius: 999px;
+        padding: 0.16rem 0.55rem;
+        font-size: 0.72rem;
+        font-weight: 800;
+        margin-right: 0.35rem;
+    }
 </style>
 """,
     unsafe_allow_html=True,
@@ -261,7 +339,14 @@ def _build_route_map_html(stops_data: list[dict]) -> str:
         ).add_to(route_map)
 
     if len(coords) > 1:
-        folium.PolyLine(coords, color="#2563eb", weight=5, opacity=0.9).add_to(route_map)
+        provider = os.environ.get("ROUTING_PROVIDER", "ors")
+        route_geom = get_route_geometry(coords, provider=provider)
+        if route_geom:
+            # route_geom is list of [lat, lng]
+            folium.PolyLine(route_geom, color="#2563eb", weight=5, opacity=0.9).add_to(route_map)
+        else:
+            # fallback: straight lines between waypoints
+            folium.PolyLine(coords, color="#2563eb", weight=5, opacity=0.9).add_to(route_map)
 
     return route_map.get_root().render()
 
@@ -325,6 +410,304 @@ def _build_loading_overview_html(result: dict) -> str:
       </div>
       <div style='margin-top:1rem;' class='section-title'>🔝 Productos principales</div>
       <div class='item-grid'>{''.join(cards) if cards else '<div class="item-muted">Sin top productos</div>'}</div>
+    </div>
+    """
+
+
+def _slot_fill_color(fill_ratio: float) -> str:
+    if fill_ratio <= 0:
+        return "#cbd5e1"
+    if fill_ratio < 0.25:
+        return "#60a5fa"
+    if fill_ratio < 0.5:
+        return "#3b82f6"
+    if fill_ratio < 0.75:
+        return "#2563eb"
+    if fill_ratio < 0.95:
+        return "#22c55e"
+    return "#16a34a"
+
+
+def _slot_text_color(fill_ratio: float) -> str:
+    return "#0f172a" if fill_ratio <= 0 else "white"
+
+
+def _truncate(text: str, limit: int = 16) -> str:
+    cleaned = " ".join(str(text or "").split())
+    if len(cleaned) <= limit:
+        return cleaned
+    return cleaned[: max(0, limit - 1)] + "…"
+
+
+def _build_slot_assignment(plan: dict, truck_capacity_l: int, truck_code: str) -> dict:
+    truck_spec = TRUCKS.get(truck_code, {})
+    slot_count = max(1, int(truck_spec.get("palets", 1) or 1))
+    slot_capacity = float(truck_capacity_l) / slot_count if slot_count else float(truck_capacity_l)
+
+    items: list[dict] = []
+    for zone in (plan.get("loading_zones", []) or []):
+        for item in zone.get("items", []) or []:
+            items.append(
+                {
+                    "name": str(item.get("name", "ITEM")),
+                    "uma": _extract_uma(str(item.get("name", ""))),
+                    "vol_l": float(item.get("vol_l", 0) or 0),
+                    "peso_kg": float(item.get("peso_kg", 0) or 0),
+                    "stops": item.get("stops", []) or [],
+                    "retornable": bool(item.get("retornable", False)),
+                }
+            )
+
+    items.sort(key=lambda x: (x["peso_kg"], x["vol_l"]), reverse=True)
+
+    slots = [
+        {
+            "vol_l": 0.0,
+            "peso_kg": 0.0,
+            "items": [],
+            "main": None,
+        }
+        for _ in range(slot_count)
+    ]
+
+    for item in items:
+        slot_idx = min(range(slot_count), key=lambda idx: slots[idx]["vol_l"])
+        slots[slot_idx]["vol_l"] += item["vol_l"]
+        slots[slot_idx]["peso_kg"] += item["peso_kg"]
+        slots[slot_idx]["items"].append(item)
+        if slots[slot_idx]["main"] is None:
+            slots[slot_idx]["main"] = item
+
+    for slot in slots:
+        slot["fill_ratio"] = min(1.0, slot["vol_l"] / slot_capacity) if slot_capacity else 0.0
+        slot["main_label"] = _truncate(slot["main"]["name"], 16) if slot["main"] else "VACÍO"
+
+    return {
+        "slot_count": slot_count,
+        "slot_capacity_l": slot_capacity,
+        "slots": slots,
+    }
+
+
+# Colores por tipo de UMA/producto
+UMA_COLORS = {
+    "BRL": "#ef4444",  # barril
+    "BID": "#f97316",
+    "BOT": "#eab308",
+    "CAJ": "#22c55e",  # caja
+    "UN":  "#06b6d4",
+    "EST": "#3b82f6",
+    "TB":  "#8b5cf6",
+    "UNK": "#94a3b8",
+}
+
+
+def _render_4_cage_container(slots: list[dict], cols_per_cage: int, truck_code: str) -> str:
+    # Distribuir slots en 4 jaulas (izq->der)
+    cages = [ [] for _ in range(4) ]
+    for i, slot in enumerate(slots):
+        cage_idx = min(3, i // cols_per_cage)
+        cages[cage_idx].append((i, slot))
+
+    cages_html = []
+    for ci, cage in enumerate(cages):
+        inner = []
+        for idx, slot in cage:
+            fill = slot.get("fill_ratio", 0.0)
+            bg = _slot_fill_color(fill)
+            fg = _slot_text_color(fill)
+            main = escape(slot.get("main_label", "VACÍO"))
+            vol = float(slot.get("vol_l", 0) or 0)
+            items_n = len(slot.get("items", []) or [])
+            color_dot = UMA_COLORS.get(slot.get("items", [{}])[0].get("uma","UNK") if slot.get("items") else "UNK", UMA_COLORS["UNK"])
+            inner.append(f"<div class='seat-cell' style='background:{bg}; color:{fg};'><div class='slot-num'>{idx+1}</div><div class='slot-main'>{main}</div><div class='slot-meta'>{vol:.0f} L · {items_n} ítems</div></div>")
+        cages_html.append(f"<div style='flex:1; padding:6px; display:flex; flex-direction:column; gap:8px;'>{''.join(inner) if inner else '<div class=\'seat-cell empty\'>VACÍO</div>'}</div>")
+
+    return f"""
+    <div style='display:flex; gap:8px; align-items:stretch;'>
+        {''.join([f'<div style="flex:1; border:1px solid #e2e8f0; border-radius:12px; padding:8px; background:#fff"><div style="font-weight:800; color:#0f172a; margin-bottom:6px;">Jaula {i+1}</div>{cages_html[i]}</div>' for i in range(4)])}
+    </div>
+    """
+
+
+def _build_loading_maps_html(plan: dict, truck_code: str, truck_capacity_l: int) -> str:
+    truck_spec = TRUCKS.get(truck_code, {})
+    palets = max(1, int(truck_spec.get("palets", 1) or 1))
+
+    assignment = _build_slot_assignment(plan, truck_capacity_l, truck_code)
+    slots = assignment["slots"]
+
+    # Top: organizamos palets en filas/columnas y además mostramos el contenedor 4-jaulas
+    cols_per_cage = max(1, math.ceil(palets / 4))
+    container_html = _render_4_cage_container(slots, cols_per_cage, truck_code)
+
+    # Lateral: fila única con todos los palets
+    lateral_cells = []
+    for idx, slot in enumerate(slots):
+        fill = slot.get("fill_ratio", 0.0)
+        bg = _slot_fill_color(fill)
+        fg = _slot_text_color(fill)
+        main = escape(slot.get("main_label", "VACÍO"))
+        vol = float(slot.get("vol_l", 0) or 0)
+        items_n = len(slot.get("items", []) or [])
+        lateral_cells.append(f"<div class='seat-cell' style='background:{bg}; color:{fg}; min-width:78px; margin-right:6px;'><div class='slot-num'>{idx+1}</div><div class='slot-main'>{main}</div><div class='slot-meta'>{vol:.0f} L</div></div>")
+
+    # Listas de carga/descarga: heurística simple LIFO
+    # Descarga (orden de descarga): slots con items cuyo stop más alto primero
+    slot_unload = []
+    for idx, slot in enumerate(slots):
+        max_stop = 0
+        for it in slot.get('items', []) or []:
+            if isinstance(it.get('stops', None), (list, tuple)) and it.get('stops'):
+                max_stop = max(max_stop, max([int(s) for s in it.get('stops') if isinstance(s, int) or (isinstance(s,str) and s.isdigit())]))
+        slot_unload.append((idx, max_stop))
+
+    # Descargar: highest stop number first (furthest client unloaded first)
+    slot_unload_sorted = sorted(slot_unload, key=lambda x: x[1], reverse=True)
+    unload_html_items = []
+    load_html_items = []
+    for order_idx, (slot_idx, stop_val) in enumerate(slot_unload_sorted, 1):
+        unload_html_items.append(f"<li><b>Bloque {slot_idx+1}</b> · parada {stop_val or '-'} </li>")
+
+    # Carga: reverso (first loaded -> lowest stop first)
+    for order_idx, (slot_idx, stop_val) in enumerate(reversed(slot_unload_sorted), 1):
+        load_html_items.append(f"<li><b>Bloque {slot_idx+1}</b> · prioridad {order_idx}</li>")
+
+    total_vol = sum(float(slot.get("vol_l", 0) or 0) for slot in slots)
+    total_weight = sum(float(slot.get("peso_kg", 0) or 0) for slot in slots)
+    utilization = (total_vol / truck_capacity_l * 100) if truck_capacity_l else 0.0
+
+    full_html = f"""
+    <div>
+      <div class="hero-card">
+        <div class="section-title">📦 Plan de carga - {truck_code}</div>
+        <div class="loading-map-subtitle">Contenedor dividido en 4 jaulas (izquierda→derecha). Cada bloque numerado representa 1/{palets} parte del camión.</div>
+        <div style='margin-bottom:12px;'>
+            {container_html}
+        </div>
+        <div style='margin-top:8px;'>
+            <div style='font-weight:800; margin-bottom:6px;'>Vista Lateral</div>
+            <div style='display:flex; align-items:center;'>{''.join(lateral_cells)}</div>
+        </div>
+        <div style='margin-top:12px; display:flex; gap:12px;'>
+            <div style='flex:1; background:#fff; border:1px solid #e2e8f0; padding:12px; border-radius:12px;'>
+                <div style='font-weight:800; margin-bottom:8px;'>Orden de Carga</div>
+                <ol>{''.join(load_html_items) or '<li>Sin asignaciones</li>'}</ol>
+            </div>
+            <div style='flex:1; background:#fff; border:1px solid #e2e8f0; padding:12px; border-radius:12px;'>
+                <div style='font-weight:800; margin-bottom:8px;'>Orden de Descarga</div>
+                <ol>{''.join(unload_html_items) or '<li>Sin asignaciones</li>'}</ol>
+            </div>
+        </div>
+        <div style='margin-top:12px;' class='kpi-grid'>
+            <div class='kpi'><div class='label'>Capacidad</div><div class='value'>{palets}P</div><div class='caption'>{truck_capacity_l} L</div></div>
+            <div class='kpi'><div class='label'>Volumen asignado</div><div class='value'>{total_vol:.0f} L</div><div class='caption'>{utilization:.1f}% del camión</div></div>
+            <div class='kpi'><div class='label'>Peso asignado</div><div class='value'>{total_weight:.0f} kg</div><div class='caption'>Distribuido en bloques</div></div>
+            <div class='kpi'><div class='label'>Bloques</div><div class='value'>{len(slots)}</div><div class='caption'>Mapa se adapta al vehículo</div></div>
+        </div>
+      </div>
+    </div>
+    """
+
+    return full_html
+
+
+def _build_seat_map_html(title: str, subtitle: str, slots: list[dict], rows: int, cols: int, truck_code: str) -> str:
+    cell_html = []
+    total_slots = len(slots)
+    for idx in range(rows * cols):
+        slot_num = idx + 1
+        slot = slots[idx] if idx < total_slots else None
+        if slot is None:
+            cell_html.append(
+                f"""
+                <div class="seat-cell empty">
+                    <div class="slot-num">{slot_num}/-</div>
+                    <div class="slot-pct">Sin posición</div>
+                    <div class="slot-main">—</div>
+                    <div class="slot-meta">{truck_code}</div>
+                </div>
+                """
+            )
+            continue
+
+        fill_ratio = float(slot.get("fill_ratio", 0.0) or 0.0)
+        bg = _slot_fill_color(fill_ratio)
+        fg = _slot_text_color(fill_ratio)
+        item_count = len(slot.get("items", []) or [])
+        main_label = escape(str(slot.get("main_label", "VACÍO")))
+        pct_label = f"{fill_ratio * 100:.0f}%"
+        meta_label = f"{float(slot.get('vol_l', 0) or 0):.0f} L · {item_count} ítems"
+        cell_html.append(
+            f"""
+            <div class="seat-cell" style="background:{bg}; color:{fg};">
+                <div class="slot-num">{slot_num}/{total_slots}</div>
+                <div class="slot-pct">{pct_label}</div>
+                <div class="slot-main">{main_label}</div>
+                <div class="slot-meta">{meta_label}</div>
+            </div>
+            """
+        )
+
+    return f"""
+    <div class="loading-map-card">
+        <div class="loading-map-title">{escape(title)}</div>
+        <div class="loading-map-subtitle">{escape(subtitle)}</div>
+        <div class="seat-grid" style="grid-template-columns: repeat({cols}, minmax(0, 1fr));">
+            {''.join(cell_html)}
+        </div>
+        <div style="margin-top:0.7rem;">
+            <span class="map-pill">{total_slots} bloques</span>
+            <span class="map-pill">{truck_code}</span>
+        </div>
+    </div>
+    """
+
+
+def _build_loading_maps_html(plan: dict, truck_code: str, truck_capacity_l: int) -> str:
+    truck_spec = TRUCKS.get(truck_code, {})
+    palets = max(1, int(truck_spec.get("palets", 1) or 1))
+
+    top_rows = 2 if palets >= 4 and palets % 2 == 0 else 1
+    top_cols = max(1, math.ceil(palets / top_rows))
+
+    assignment = _build_slot_assignment(plan, truck_capacity_l, truck_code)
+    slots = assignment["slots"]
+
+    top_html = _build_seat_map_html(
+        title="Vista superior",
+        subtitle="Plano tipo selector de asientos: cada bloque representa 1/x de la capacidad del camión.",
+        slots=slots,
+        rows=top_rows,
+        cols=top_cols,
+        truck_code=truck_code,
+    )
+    lateral_html = _build_seat_map_html(
+        title="Vista lateral",
+        subtitle="Vista de perfil con la misma partición de bloques, adaptada al tamaño del camión seleccionado.",
+        slots=slots,
+        rows=1,
+        cols=palets,
+        truck_code=truck_code,
+    )
+
+    total_vol = sum(float(slot.get("vol_l", 0) or 0) for slot in slots)
+    total_weight = sum(float(slot.get("peso_kg", 0) or 0) for slot in slots)
+    utilization = (total_vol / truck_capacity_l * 100) if truck_capacity_l else 0.0
+
+    return f"""
+    <div class="hero-card">
+        <div class="section-title">📦 Plan de carga</div>
+        <div class="loading-map-grid">
+            {top_html}
+            {lateral_html}
+        </div>
+        <div style="margin-top:0.85rem;" class="kpi-grid">
+            <div class="kpi"><div class="label">Capacidad</div><div class="value">{palets}P</div><div class="caption">{truck_capacity_l} L</div></div>
+            <div class="kpi"><div class="label">Volumen asignado</div><div class="value">{total_vol:.0f} L</div><div class="caption">{utilization:.1f}% del camión</div></div>
+            <div class="kpi"><div class="label">Peso asignado</div><div class="value">{total_weight:.0f} kg</div><div class="caption">Distribuido en bloques</div></div>
+            <div class="kpi"><div class="label">Bloques</div><div class="value">{len(slots)}</div><div class="caption">Mapa se adapta al vehículo</div></div>
+        </div>
     </div>
     """
 
@@ -613,9 +996,11 @@ if st.sidebar.button("▶️ RESOLVER OPTIMIZACIÓN", key="solve_btn"):
                 st.markdown('<div class="section-title">Plan de Carga</div>', unsafe_allow_html=True)
                 if stops_data:
                     truck_capacity_l = int(TRUCKS[truck_selected]["vol_m3"] * 1000)
-                    fig_3d = _build_loading_3d_figure(stops_data, truck_capacity_l)
-                    st.plotly_chart(fig_3d, use_container_width=True)
-                    st.caption("Vista 3D interactiva: rotar, zoom y pane para inspeccionar la distribución de carga.")
+                    loading_plan = visualize_loading_plan(stops_data, truck_capacity_l)
+                    import streamlit.components.v1 as components
+                    html_blob = _build_loading_maps_html(loading_plan, truck_selected, truck_capacity_l)
+                    components.html(html_blob, height=720, scrolling=True)
+                    st.caption("Mapa 2D tipo selector de asientos: vista superior y lateral, ambos sincronizados con el camión seleccionado.")
                 else:
                     st.info("ℹ️ No hay datos de carga para visualizar")
 
@@ -779,3 +1164,68 @@ python -m streamlit run app/dashboard.py
         """,
         language="bash",
     )
+
+
+def render_loading_dashboard(load):
+    """
+    Función para renderizar el panel visual de carga en Streamlit.
+    Recibe un objeto 'load' de tipo TruckLoad.
+    """
+    
+    st.title("📦 Damm Smart Truck - Planificador de Carga")
+    
+    st.subheader("🚛 Visualización de la Carga del Camión")
+    st.info(f"**Modelo de Camión:** {load.truck_type} | **Volumen Ocupado:** {load.vol_total_l:.0f} L | **Peso:** {load.peso_total_kg:.0f} kg")
+
+    # 1. Renderizar los gráficos 2D
+    # Llamamos al método de nuestra clase visualizadora
+    fig_2d = TruckVisualizer.plot_2d_views(load)
+    st.plotly_chart(fig_2d, use_container_width=True)
+
+    st.markdown("---")
+
+    # 2. Renderizar las Listas de Operativa (Carga y Descarga)
+    st.subheader("📋 Plan Operativo: Almacén vs Chófer")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("### 📤 ORDEN DE DESCARGA (Para el Chófer en Ruta)")
+        st.markdown("*Lo que se saca en cada parada, desde las lonas laterales.*")
+        
+        html_descarga = "<div style='display:flex; flex-direction:column; gap:12px;'>"
+        for i, stop in enumerate(load.ordered_stops, 1):
+            html_descarga += f"""
+            <div style="padding: 12px; border-left: 6px solid #ff4b4b; background-color: #fff5f5; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <div style="color: #ff4b4b; font-weight: bold; font-size: 1.1em; margin-bottom: 4px;">Parada {i}</div>
+                <div style="font-size: 1.05em; font-weight: 600; color: #333;">{stop.cliente_nombre}</div>
+                <div style="font-size: 0.9em; color: #666; margin-bottom: 6px;">📍 {stop.poblacion}</div>
+                <div style="font-size: 0.85em; background-color: #ffe0e0; display: inline-block; padding: 3px 8px; border-radius: 4px; color: #d32f2f;">
+                    📦 {stop.volumen_l:.1f} L &nbsp;|&nbsp; ⚖️ {stop.peso_kg:.1f} kg
+                </div>
+            </div>
+            """
+        html_descarga += "</div>"
+        
+        # El parámetro unsafe_allow_html=True es vital para que las tarjetas se rendericen
+        st.markdown(html_descarga, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("### 📥 ORDEN DE CARGA (Para el Picking en Almacén)")
+        st.markdown("*Lo que el operario del almacén monta primero (ruta inversa).*")
+        
+        stops_inversas = list(reversed(load.ordered_stops))
+        html_carga = "<div style='display:flex; flex-direction:column; gap:12px;'>"
+        for i, stop in enumerate(stops_inversas, 1):
+            html_carga += f"""
+            <div style="padding: 12px; border-left: 6px solid #28a745; background-color: #f0fff4; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <div style="color: #28a745; font-weight: bold; font-size: 1.1em; margin-bottom: 4px;">Paso de Picking {i}</div>
+                <div style="font-size: 1.05em; font-weight: 600; color: #333;">{stop.cliente_nombre}</div>
+                <div style="font-size: 0.9em; color: #666; margin-bottom: 6px;">📍 {stop.poblacion}</div>
+                <div style="font-size: 0.85em; background-color: #d4edda; display: inline-block; padding: 3px 8px; border-radius: 4px; color: #155724;">
+                    📦 {stop.volumen_l:.1f} L &nbsp;|&nbsp; ⚖️ {stop.peso_kg:.1f} kg
+                </div>
+            </div>
+            """
+        html_carga += "</div>"
+        st.markdown(html_carga, unsafe_allow_html=True)
