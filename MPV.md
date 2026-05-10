@@ -1,10 +1,3 @@
-# CLAUDE.md — Damm Smart Truck (INTERHACK BCN 2026)
-
-Este fichero da contexto a Claude (o cualquier asistente IA en VSCode) sobre el proyecto.
-Léelo entero antes de proponer cualquier cambio. Si vas a tocar datos o algoritmos, **vuelve aquí** para verificar el schema y las decisiones tomadas.
-
----
-
 ## 1. Visión general del proyecto
 
 **Reto**: optimizar conjuntamente la **ruta de reparto** y la **configuración de carga** de los camiones de DDI (Distribución Directa Integral, grupo Damm), considerando logística inversa (60% del producto es retornable) y restricciones operativas reales (camiones de 6/8 palets con lonas laterales, ventanas horarias por cliente, layout del almacén).
@@ -824,12 +817,11 @@ Reglas:
 
 ---
 
-## 10. Comandos rápidos para Claude/asistente IA
+## 10. Comandos rápidos
 
 Cuando trabajes en este repo, recuerda:
 
 - "Antes de escribir código que toque datos, abre `cache/canonical.parquet` y mira las primeras filas con `df.head()`."
-- "Si añades una nueva columna al canonical, actualiza el schema en este `CLAUDE.md` (sección 6)."
 - "Si tocas el VRP solver, ejecuta `python -m src.vrp_solver --transport 11420136` y verifica que la solución sigue siendo razonable."
 - "Si tocas el packer, ejecuta el smoke test con un transporte conocido y mira el render 3D — debe verse coherente."
 - "No introduzcas nuevas dependencias sin justificarlo en el `requirements.txt` con un comentario."
