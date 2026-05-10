@@ -562,24 +562,6 @@ def _build_loading_overview_html(result: dict) -> str:
     """
 
 
-def _slot_fill_color(fill_ratio: float) -> str:
-    if fill_ratio <= 0:
-        return "#cbd5e1"
-    if fill_ratio < 0.25:
-        return "#60a5fa"
-    if fill_ratio < 0.5:
-        return "#3b82f6"
-    if fill_ratio < 0.75:
-        return "#2563eb"
-    if fill_ratio < 0.95:
-        return "#22c55e"
-    return "#16a34a"
-
-
-def _slot_text_color(fill_ratio: float) -> str:
-    return "#0f172a" if fill_ratio <= 0 else "white"
-
-
 def _truncate(text: str, limit: int = 16) -> str:
     cleaned = " ".join(str(text or "").split())
     if len(cleaned) <= limit:
@@ -587,315 +569,355 @@ def _truncate(text: str, limit: int = 16) -> str:
     return cleaned[: max(0, limit - 1)] + "…"
 
 
-def _build_slot_assignment(plan: dict, truck_capacity_l: int, truck_code: str) -> dict:
-    truck_spec = TRUCKS.get(truck_code, {})
-    slot_count = max(1, int(truck_spec.get("palets", 1) or 1))
-    slot_capacity = float(truck_capacity_l) / slot_count if slot_count else float(truck_capacity_l)
-
-    items: list[dict] = []
-    for zone in (plan.get("loading_zones", []) or []):
-        for item in zone.get("items", []) or []:
-            items.append(
-                {
-                    "name": str(item.get("name", "ITEM")),
-                    "uma": _extract_uma(str(item.get("name", ""))),
-                    "vol_l": float(item.get("vol_l", 0) or 0),
-                    "peso_kg": float(item.get("peso_kg", 0) or 0),
-                    "stops": item.get("stops", []) or [],
-                    "retornable": bool(item.get("retornable", False)),
-                }
-            )
-
-    items.sort(key=lambda x: (x["peso_kg"], x["vol_l"]), reverse=True)
-
-    slots = [
-        {
-            "vol_l": 0.0,
-            "peso_kg": 0.0,
-            "items": [],
-            "main": None,
-        }
-        for _ in range(slot_count)
-    ]
-
-    for item in items:
-        slot_idx = min(range(slot_count), key=lambda idx: slots[idx]["vol_l"])
-        slots[slot_idx]["vol_l"] += item["vol_l"]
-        slots[slot_idx]["peso_kg"] += item["peso_kg"]
-        slots[slot_idx]["items"].append(item)
-        if slots[slot_idx]["main"] is None:
-            slots[slot_idx]["main"] = item
-
-    for slot in slots:
-        slot["fill_ratio"] = min(1.0, slot["vol_l"] / slot_capacity) if slot_capacity else 0.0
-        slot["main_label"] = _truncate(slot["main"]["name"], 16) if slot["main"] else "VACÍO"
-
-    return {
-        "slot_count": slot_count,
-        "slot_capacity_l": slot_capacity,
-        "slots": slots,
-    }
+def _zone_fill_color(ratio: float) -> str:
+    """Color escalonado por nivel de llenado de zona."""
+    if ratio <= 0:
+        return "#94a3b8"
+    if ratio < 0.4:
+        return "#22c55e"
+    if ratio < 0.7:
+        return "#3b82f6"
+    if ratio < 0.9:
+        return "#0ea5e9"
+    if ratio <= 1.0:
+        return "#16a34a"
+    return "#ef4444"
 
 
-# Colores por tipo de UMA/producto
-UMA_COLORS = {
-    "BRL": "#ef4444",  # barril
-    "BID": "#f97316",
-    "BOT": "#eab308",
-    "CAJ": "#22c55e",  # caja
-    "UN":  "#06b6d4",
-    "EST": "#3b82f6",
-    "TB":  "#8b5cf6",
-    "UNK": "#94a3b8",
-}
+def _build_zone_card_html(zone: dict, label: str) -> str:
+    cap = float(zone.get("capacity_l", 1) or 1)
+    vol = float(zone.get("current_volume_l", 0) or 0)
+    ratio = vol / cap if cap else 0.0
+    pct = ratio * 100
+    pct_clamped = min(100, pct)
+    color = _zone_fill_color(ratio)
+    items = zone.get("items", []) or []
+    n_items = len(items)
+    weight_kg = sum(float(it.get("peso_kg", 0) or 0) for it in items)
 
-
-def _render_4_cage_container(slots: list[dict], cols_per_cage: int, truck_code: str) -> str:
-    # Distribuir slots en 4 jaulas (izq->der)
-    cages = [ [] for _ in range(4) ]
-    for i, slot in enumerate(slots):
-        cage_idx = min(3, i // cols_per_cage)
-        cages[cage_idx].append((i, slot))
-
-    cages_html = []
-    for ci, cage in enumerate(cages):
-        inner = []
-        for idx, slot in cage:
-            fill = slot.get("fill_ratio", 0.0)
-            bg = _slot_fill_color(fill)
-            fg = _slot_text_color(fill)
-            main = escape(slot.get("main_label", "VACÍO"))
-            vol = float(slot.get("vol_l", 0) or 0)
-            items_n = len(slot.get("items", []) or [])
-            color_dot = UMA_COLORS.get(slot.get("items", [{}])[0].get("uma","UNK") if slot.get("items") else "UNK", UMA_COLORS["UNK"])
-            inner.append(f"<div class='seat-cell' style='background:{bg}; color:{fg};'><div class='slot-num'>{idx+1}</div><div class='slot-main'>{main}</div><div class='slot-meta'>{vol:.0f} L · {items_n} ítems</div></div>")
-        cages_html.append(f"<div style='flex:1; padding:6px; display:flex; flex-direction:column; gap:8px;'>{''.join(inner) if inner else '<div class=\'seat-cell empty\'>VACÍO</div>'}</div>")
+    top_items = sorted(items, key=lambda x: float(x.get("vol_l", 0) or 0), reverse=True)
+    top_name = top_items[0].get("name", "—") if top_items else "Vacío"
+    top_name_short = _truncate(top_name, 24)
 
     return f"""
-    <div style='display:flex; gap:8px; align-items:stretch;'>
-        {''.join([f'<div style="flex:1; border:1px solid #e2e8f0; border-radius:12px; padding:8px; background:#fff"><div style="font-weight:800; color:#0f172a; margin-bottom:6px;">Jaula {i+1}</div>{cages_html[i]}</div>' for i in range(4)])}
+    <div class="zone-card" style="--accent:{color};">
+      <div class="zone-card-head">
+        <span class="zone-card-label">{escape(label)}</span>
+        <span class="zone-card-pct" style="color:{color};">{pct:.0f}%</span>
+      </div>
+      <div class="zone-card-bar"><div class="zone-card-fill" style="width:{pct_clamped:.1f}%; background:{color};"></div></div>
+      <div class="zone-card-meta">
+        <span><b>{vol:.0f} L</b> / {cap:.0f} L</span>
+        <span>{weight_kg:.0f} kg</span>
+      </div>
+      <div class="zone-card-top" title="{escape(top_name)}">{escape(top_name_short)}</div>
+      <div class="zone-card-foot">{n_items} línea{'s' if n_items != 1 else ''}</div>
     </div>
     """
 
-def _get_item_style_and_icon(uma: str) -> tuple[str, str]:
-    """Asigna estilo visual y emoji según el tipo de unidad de carga."""
-    uma = str(uma).upper()
-    if uma in ["BRL", "BID"]: 
-        return "type-barril", "🛢️" # Icono de barril
-    if uma in ["CAJ", "EST", "PQ"]: 
-        return "type-caja", "📦"   # Icono de caja
-    if uma in ["BOT", "PAK", "TB", "UN"]: 
-        return "type-botella", "🥤" # Icono de bebidas
-    return "type-otro", "🧊"
 
-def _build_loading_maps_html(plan: dict, truck_code: str, truck_capacity_l: int) -> str:
-    truck_spec = config.TRUCKS.get(truck_code, {})
-    palets = max(1, int(truck_spec.get("palets", 1) or 1))
+def _build_truck_schematic_html(plan: dict) -> str:
+    zones = {z.get("zone_id"): z for z in plan.get("loading_zones", []) or []}
+    bay_no1_html = _build_zone_card_html(zones.get("bay_no1", {}), "Bahía N-1 · frente")
+    bay_no2_html = _build_zone_card_html(zones.get("bay_no2", {}), "Bahía N-2 · atrás")
+    bay_su1_html = _build_zone_card_html(zones.get("bay_su1", {}), "Bahía S-1 · frente")
+    bay_su2_html = _build_zone_card_html(zones.get("bay_su2", {}), "Bahía S-2 · atrás")
+    toldo_izq_html = _build_zone_card_html(zones.get("toldo_izq", {}), "Toldo izq.")
+    toldo_der_html = _build_zone_card_html(zones.get("toldo_der", {}), "Toldo der.")
 
-    assignment = _build_slot_assignment(plan, truck_capacity_l, truck_code)
-    slots = assignment["slots"]
-    slot_cap = assignment["slot_capacity_l"]
-
-    # Lógica de Jaulas: Dividimos el espacio en 4 compartimentos visuales
-    num_jaulas = 4 if palets >= 4 else palets
-    jaulas = [[] for _ in range(num_jaulas)]
-    for i, slot in enumerate(slots):
-        idx_j = min(num_jaulas - 1, i * num_jaulas // len(slots))
-        jaulas[idx_j].append(slot)
-
-    # --- VISTA LATERAL (Perfil del camión con Cabina y Ruedas) ---
-    lateral_html = ""
-    for j_idx, contenido_jaula in enumerate(jaulas):
-        columnas_html = ""
-        for slot in contenido_jaula:
-            items_html = ""
-            for item in slot["items"]:
-                uma = _extract_uma(item.get("name", ""))
-                estilo, icono = _get_item_style_and_icon(uma)
-                vol = float(item.get("vol_l", 0) or 0)
-                # Altura proporcional al volumen (mínimo 15% para que sea clicable)
-                h_pct = min(100, max(15, (vol / slot_cap) * 100)) if slot_cap else 15
-                
-                items_html += f'''
-                <div class="item-cargo {estilo}" style="height:{h_pct}%;">
-                    <span style="font-size:16px;">{icono}</span>
-                    <span class="cargo-txt">{vol:.0f}L</span>
-                </div>'''
-            
-            columnas_html += f'<div class="slot-column">{items_html or "<div class=\'empty-txt\'>VACÍO</div>"}</div>'
-        lateral_html += f'<div class="jaula-compartimento">{columnas_html}</div>'
-
-    # --- VISTA SUPERIOR (Top-down) ---
-    superior_html = ""
-    for j_idx, contenido_jaula in enumerate(jaulas):
-        bloques_top = ""
-        for slot in contenido_jaula:
-            fill = slot.get("fill_ratio", 0) * 100
-            uma_top = _extract_uma(slot.get("main", {}).get("uma", "")) if slot.get("main") else ""
-            estilo_top, icono_top = _get_item_style_and_icon(uma_top)
-            
-            bloques_top += f'''
-            <div class="top-block {estilo_top if fill > 0 else 'empty-block'}">
-                <div style="font-size:22px;">{icono_top if fill > 0 else ''}</div>
-                <div class="top-txt"><b>{escape(slot.get("main_label", "VACÍO"))}</b></div>
-                <div class="top-sub">{slot.get("vol_l", 0):.0f}L ({fill:.0f}%)</div>
-            </div>'''
-        superior_html += f'<div class="jaula-top">{bloques_top}</div>'
-
-    # --- CSS Y ENSAMBLAJE ---
     return f"""
-    <style>
-        .truck-container {{ display: flex; align-items: flex-end; padding: 20px 0; margin-bottom: 40px; }}
-        .cabina {{ width: 80px; height: 160px; background: #E20613; border: 4px solid #1e293b; border-radius: 20px 5px 5px 5px; position: relative; }}
-        .ventana {{ background: #cbd5e1; height: 60px; margin: 15px 10px; border-radius: 10px 5px 0 0; border: 2px solid #1e293b; }}
-        
-        .caja-carga {{ flex: 1; height: 250px; background: #f8fafc; border: 4px solid #1e293b; border-left: none; display: flex; position: relative; }}
-        .jaula-compartimento {{ flex: 1; border-right: 3px dashed #94a3b8; display: flex; padding: 10px; gap: 8px; }}
-        .jaula-compartimento:last-child {{ border-right: none; }}
-        
-        .slot-column {{ flex: 1; display: flex; flex-direction: column-reverse; background: rgba(226, 232, 240, 0.5); border-radius: 8px; padding: 5px; gap: 4px; }}
-        .item-cargo {{ display: flex; align-items: center; justify-content: center; color: white; border-radius: 6px; border: 1px solid rgba(0,0,0,0.2); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
-        .type-caja {{ background: linear-gradient(135deg, #16a34a, #15803d); }}
-        .type-barril {{ background: linear-gradient(135deg, #dc2626, #991b1b); border-radius: 10px; }}
-        .type-botella {{ background: linear-gradient(135deg, #2563eb, #1d4ed8); }}
-        .cargo-txt {{ font-size: 10px; font-weight: bold; margin-left: 2px; }}
-        
-        .ruedas-box {{ position: absolute; bottom: -25px; width: 100%; display: flex; justify-content: space-around; }}
-        .rueda {{ width: 45px; height: 45px; background: #334155; border: 5px solid #0f172a; border-radius: 50%; }}
-        
-        .top-view {{ display: flex; background: #94a3b8; padding: 15px; border-radius: 12px; gap: 10px; border: 4px solid #334155; }}
-        .jaula-top {{ flex: 1; display: flex; gap: 8px; background: white; padding: 8px; border-radius: 8px; border: 2px dashed #cbd5e1; }}
-        .top-block {{ flex: 1; height: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 6px; color: white; }}
-        .empty-block {{ background: #f1f5f9; border: 2px dashed #cbd5e1; color: #94a3b8; }}
-        .top-txt {{ font-size: 11px; margin-top: 5px; text-align: center; }}
-        .top-sub {{ font-size: 10px; opacity: 0.8; }}
-    </style>
+    <div class="truck-schema">
+      <div class="truck-side">
+        <div class="truck-side-label">⬅ TOLDO IZQUIERDO</div>
+        {toldo_izq_html}
+        <div class="truck-side-foot">Retornables<br>(acceso lateral deslizable)</div>
+      </div>
 
-    <div class="hero-card">
-        <h3 style="color:#0f172a; margin-bottom:5px;">🚛 Plan de Carga Visual: {truck_code}</h3>
-        <p style="color:#64748b; font-size:0.9em; margin-bottom:25px;">Distribución por jaulas y apilamiento real de productos.</p>
-        
-        <h4 style="color:#475569;">Vista Lateral (Perfil)</h4>
-        <div class="truck-container">
-            <div class="cabina"><div class="ventana"></div></div>
-            <div class="caja-carga">
-                {lateral_html}
-                <div class="ruedas-box">
-                    <div class="rueda"></div><div class="rueda"></div><div class="rueda"></div>
-                </div>
+      <div class="truck-body">
+        <div class="truck-cabin">
+          <div class="truck-cabin-icon">🚛</div>
+          <div class="truck-cabin-label">CABINA</div>
+        </div>
+        <div class="truck-cargo">
+          <div class="truck-row">
+            <div class="truck-row-label">N</div>
+            <div class="truck-row-content">
+              {bay_no1_html}
+              {bay_no2_html}
             </div>
+          </div>
+          <div class="truck-divider"></div>
+          <div class="truck-row">
+            <div class="truck-row-label">S</div>
+            <div class="truck-row-content">
+              {bay_su1_html}
+              {bay_su2_html}
+            </div>
+          </div>
+          <div class="truck-tail">↓ RAMPA TRASERA · descarga principal</div>
         </div>
+        <div class="truck-wheels">
+          <div class="wheel"></div><div class="wheel"></div>
+          <div class="wheel"></div><div class="wheel"></div>
+        </div>
+      </div>
 
-        <h4 style="color:#475569; margin-top:20px;">Vista Superior (Distribución de Planta)</h4>
-        <div class="top-view">
-            <div style="width:70px; background:#E20613; border-radius:8px; border:3px solid #334155;"></div>
-            <div style="display:flex; flex:1; gap:10px;">{superior_html}</div>
-        </div>
-
-        <div style="margin-top:30px;" class="kpi-grid">
-            <div class="kpi"><div class="label">Capacidad</div><div class="value">{palets}P</div><div class="caption">{truck_capacity_l}L</div></div>
-            <div class="kpi"><div class="label">Ocupación</div><div class="value">{((sum(s['vol_l'] for s in slots)/truck_capacity_l)*100):.1f}%</div><div class="caption">Carga dinámica</div></div>
-            <div class="kpi"><div class="label">Peso</div><div class="value">{sum(s['peso_kg'] for s in slots):.0f}kg</div><div class="caption">Seguridad vial</div></div>
-        </div>
+      <div class="truck-side">
+        <div class="truck-side-label">TOLDO DERECHO ➡</div>
+        {toldo_der_html}
+        <div class="truck-side-foot">Retornables<br>(acceso lateral deslizable)</div>
+      </div>
     </div>
     """
 
-def _build_seat_map_html(title: str, subtitle: str, slots: list[dict], rows: int, cols: int, truck_code: str) -> str:
-    cell_html = []
-    total_slots = len(slots)
-    for idx in range(rows * cols):
-        slot_num = idx + 1
-        slot = slots[idx] if idx < total_slots else None
-        if slot is None:
-            cell_html.append(
-                f"""
-                <div class="seat-cell empty">
-                    <div class="slot-num">{slot_num}/-</div>
-                    <div class="slot-pct">Sin posición</div>
-                    <div class="slot-main">—</div>
-                    <div class="slot-meta">{truck_code}</div>
-                </div>
-                """
-            )
-            continue
 
-        fill_ratio = float(slot.get("fill_ratio", 0.0) or 0.0)
-        bg = _slot_fill_color(fill_ratio)
-        fg = _slot_text_color(fill_ratio)
-        item_count = len(slot.get("items", []) or [])
-        main_label = escape(str(slot.get("main_label", "VACÍO")))
-        pct_label = f"{fill_ratio * 100:.0f}%"
-        meta_label = f"{float(slot.get('vol_l', 0) or 0):.0f} L · {item_count} ítems"
-        cell_html.append(
-            f"""
-            <div class="seat-cell" style="background:{bg}; color:{fg};">
-                <div class="slot-num">{slot_num}/{total_slots}</div>
-                <div class="slot-pct">{pct_label}</div>
-                <div class="slot-main">{main_label}</div>
-                <div class="slot-meta">{meta_label}</div>
-            </div>
-            """
+def _build_loading_sequence_html(plan: dict) -> str:
+    sequence = plan.get("warehouse_preparation", []) or []
+    if not sequence:
+        return ""
+
+    cards = []
+    total = len(sequence)
+    for i, entry in enumerate(sequence):
+        position = i + 1
+        route_order = entry.get("route_order", "?")
+        cliente = escape(str(entry.get("cliente_nombre", "—")))
+        poblacion = escape(str(entry.get("poblacion", "")))
+
+        seq_lines = []
+        for seq in entry.get("picking_sequence", []) or []:
+            uma = escape(str(seq.get("uma", "?")))
+            bahia = escape(str(seq.get("bahia", "—")))
+            vol = float(seq.get("volumen_l", 0) or 0)
+            kg = float(seq.get("peso_kg", 0) or 0)
+            seq_lines.append(
+                f"<li><span class='seq-uma'>{uma}</span> → <span class='seq-bay'>{bahia}</span>"
+                f" <span class='seq-meta'>{vol:.0f} L · {kg:.0f} kg</span></li>"
+            )
+        if not seq_lines:
+            seq_lines.append("<li class='seq-empty'>Sin productos</li>")
+
+        cards.append(
+            f"<div class='seq-step'>"
+            f"<div class='seq-step-num'>{position}</div>"
+            f"<div class='seq-step-body'>"
+            f"<div class='seq-step-title'>{cliente}</div>"
+            f"<div class='seq-step-sub'>Parada #{route_order} · {poblacion}</div>"
+            f"<ul class='seq-step-list'>{''.join(seq_lines)}</ul>"
+            f"</div>"
+            f"</div>"
         )
 
     return f"""
-    <div class="loading-map-card">
-        <div class="loading-map-title">{escape(title)}</div>
-        <div class="loading-map-subtitle">{escape(subtitle)}</div>
-        <div class="seat-grid" style="grid-template-columns: repeat({cols}, minmax(0, 1fr));">
-            {''.join(cell_html)}
-        </div>
-        <div style="margin-top:0.7rem;">
-            <span class="map-pill">{total_slots} bloques</span>
-            <span class="map-pill">{truck_code}</span>
-        </div>
+    <div class="seq-card">
+      <div class="seq-head">
+        <div class="seq-title">📋 Orden de picking en almacén</div>
+        <div class="seq-sub">Carga LIFO · {total} pasos · El primer cliente de la ruta se carga el último</div>
+      </div>
+      <div class="seq-list">{''.join(cards)}</div>
     </div>
     """
 
 
-def _build_loading_maps_html(plan: dict, truck_code: str, truck_capacity_l: int) -> str:
-    truck_spec = TRUCKS.get(truck_code, {})
-    palets = max(1, int(truck_spec.get("palets", 1) or 1))
+def _build_zone_details_html(plan: dict) -> str:
+    zones = plan.get("loading_zones", []) or []
+    if not zones:
+        return ""
 
-    top_rows = 2 if palets >= 4 and palets % 2 == 0 else 1
-    top_cols = max(1, math.ceil(palets / top_rows))
+    rows = []
+    for z in zones:
+        items = z.get("items", []) or []
+        zone_name = escape(str(z.get("zone_name", z.get("zone_id", ""))))
+        cap = float(z.get("capacity_l", 0) or 0)
+        vol = float(z.get("current_volume_l", 0) or 0)
+        pct = (vol / cap * 100) if cap else 0
+        access = escape(str(z.get("access", "")))
+        ratio = (vol / cap) if cap else 0.0
+        bar_color = _zone_fill_color(ratio)
 
-    assignment = _build_slot_assignment(plan, truck_capacity_l, truck_code)
-    slots = assignment["slots"]
+        if not items:
+            content_html = "<div class='zd-empty'>Sin items asignados</div>"
+        else:
+            chips = []
+            for it in sorted(items, key=lambda x: float(x.get("vol_l", 0) or 0), reverse=True):
+                name = escape(str(it.get("name", "—")))
+                ivol = float(it.get("vol_l", 0) or 0)
+                ikg = float(it.get("peso_kg", 0) or 0)
+                cant = int(it.get("cantidad", 0) or 0)
+                stops = it.get("stops", []) or []
+                stops_label = ", ".join(f"#{s}" for s in stops[:6])
+                if len(stops) > 6:
+                    stops_label += f" +{len(stops) - 6}"
+                ret_badge = "<span class='zd-tag zd-tag-ret'>♻️ Retornable</span>" if it.get("retornable") else ""
+                chips.append(
+                    f"<div class='zd-item'>"
+                    f"<div class='zd-item-name'>{name} {ret_badge}</div>"
+                    f"<div class='zd-item-meta'>{cant} uds · {ivol:.0f} L · {ikg:.0f} kg</div>"
+                    f"<div class='zd-item-stops'>Paradas: {stops_label or '—'}</div>"
+                    f"</div>"
+                )
+            content_html = f"<div class='zd-grid'>{''.join(chips)}</div>"
 
-    top_html = _build_seat_map_html(
-        title="Vista superior",
-        subtitle="Plano tipo selector de asientos: cada bloque representa 1/x de la capacidad del camión.",
-        slots=slots,
-        rows=top_rows,
-        cols=top_cols,
-        truck_code=truck_code,
-    )
-    lateral_html = _build_seat_map_html(
-        title="Vista lateral",
-        subtitle="Vista de perfil con la misma partición de bloques, adaptada al tamaño del camión seleccionado.",
-        slots=slots,
-        rows=1,
-        cols=palets,
-        truck_code=truck_code,
-    )
-
-    total_vol = sum(float(slot.get("vol_l", 0) or 0) for slot in slots)
-    total_weight = sum(float(slot.get("peso_kg", 0) or 0) for slot in slots)
-    utilization = (total_vol / truck_capacity_l * 100) if truck_capacity_l else 0.0
+        rows.append(
+            f"<div class='zd-zone'>"
+            f"<div class='zd-zone-head'>"
+            f"<div class='zd-zone-name'>{zone_name}</div>"
+            f"<div class='zd-zone-meta'>{vol:.0f} / {cap:.0f} L · <b style='color:{bar_color}'>{pct:.0f}%</b> · {access}</div>"
+            f"</div>"
+            f"<div class='zd-zone-bar'><div class='zd-zone-fill' style='width:{min(100, pct):.1f}%; background:{bar_color};'></div></div>"
+            f"{content_html}"
+            f"</div>"
+        )
 
     return f"""
-    <div class="hero-card">
-        <div class="section-title">📦 Plan de carga</div>
-        <div class="loading-map-grid">
-            {top_html}
-            {lateral_html}
-        </div>
-        <div style="margin-top:0.85rem;" class="kpi-grid">
-            <div class="kpi"><div class="label">Capacidad</div><div class="value">{palets}P</div><div class="caption">{truck_capacity_l} L</div></div>
-            <div class="kpi"><div class="label">Volumen asignado</div><div class="value">{total_vol:.0f} L</div><div class="caption">{utilization:.1f}% del camión</div></div>
-            <div class="kpi"><div class="label">Peso asignado</div><div class="value">{total_weight:.0f} kg</div><div class="caption">Distribuido en bloques</div></div>
-            <div class="kpi"><div class="label">Bloques</div><div class="value">{len(slots)}</div><div class="caption">Mapa se adapta al vehículo</div></div>
-        </div>
+    <div class="zd-card">
+      <div class="zd-title">📦 Contenido detallado por zona</div>
+      {''.join(rows)}
+    </div>
+    """
+
+
+def _build_safety_notes_html(plan: dict) -> str:
+    notes = plan.get("safety_notes", []) or []
+    items = []
+    for n in notes:
+        text = str(n or "").strip()
+        if not text:
+            continue
+        cls = "sn-ok"
+        if "ALERTA" in text or text.startswith("!"):
+            cls = "sn-alert"
+        elif "⚠" in text or "casi" in text.lower():
+            cls = "sn-warn"
+        items.append(f"<li class='{cls}'>{escape(text)}</li>")
+    if not items:
+        return ""
+    return f"""
+    <div class="sn-card">
+      <div class="sn-title">⚠️ Notas de seguridad y carga</div>
+      <ul class="sn-list">{''.join(items)}</ul>
+    </div>
+    """
+
+
+_LOADING_PLAN_CSS = """
+<style>
+  .lp-shell { font-family: Inter, system-ui, sans-serif; color: #0f172a; }
+  .lp-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.7rem; margin-bottom: 1rem; }
+  .lp-kpi { background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 0.75rem 0.9rem; box-shadow: 0 4px 14px rgba(15,23,42,0.05); }
+  .lp-kpi-label { color: #64748b; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+  .lp-kpi-value { font-size: 1.55rem; font-weight: 800; margin-top: 0.15rem; color: #0f172a; }
+  .lp-kpi-cap { color: #475569; font-size: 0.78rem; margin-top: 0.1rem; }
+
+  .truck-schema { display: grid; grid-template-columns: 170px 1fr 170px; gap: 0.8rem; align-items: stretch; margin-bottom: 1.4rem; }
+  .truck-side { display: flex; flex-direction: column; background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%); border: 2px dashed #f59e0b; border-radius: 16px; padding: 0.6rem; gap: 0.5rem; }
+  .truck-side-label { font-size: 0.72rem; font-weight: 800; color: #92400e; text-align: center; letter-spacing: 0.05em; }
+  .truck-side-foot { font-size: 0.7rem; color: #92400e; text-align: center; margin-top: auto; line-height: 1.25; }
+
+  .truck-body { display: flex; flex-direction: column; background: #f1f5f9; border-radius: 18px; border: 2px solid #334155; padding: 0.5rem; gap: 0.4rem; position: relative; }
+  .truck-cabin { display: flex; align-items: center; justify-content: center; gap: 0.5rem; background: linear-gradient(135deg, #E20613 0%, #b91c1c 100%); color: white; border-radius: 12px 12px 4px 4px; padding: 0.55rem; font-weight: 800; }
+  .truck-cabin-icon { font-size: 1.4rem; }
+  .truck-cabin-label { font-size: 0.85rem; letter-spacing: 0.12em; }
+  .truck-cargo { background: white; border-radius: 10px; padding: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; }
+  .truck-row { display: grid; grid-template-columns: 28px 1fr; gap: 0.4rem; align-items: stretch; }
+  .truck-row-label { writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; background: #1e293b; color: white; border-radius: 6px; font-weight: 800; font-size: 0.78rem; letter-spacing: 0.12em; }
+  .truck-row-content { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .truck-divider { height: 0; border-top: 2px dashed #94a3b8; margin: 0.1rem 0; }
+  .truck-tail { text-align: center; font-size: 0.72rem; font-weight: 700; color: #475569; padding-top: 0.45rem; border-top: 2px solid #94a3b8; margin-top: 0.3rem; }
+  .truck-wheels { display: flex; justify-content: space-around; padding: 0 2rem; margin-top: -0.3rem; }
+  .wheel { width: 26px; height: 26px; border-radius: 50%; background: #1e293b; border: 3px solid #475569; box-shadow: 0 2px 4px rgba(0,0,0,0.25); }
+
+  .zone-card { background: white; border: 1px solid #e2e8f0; border-left: 5px solid var(--accent, #94a3b8); border-radius: 10px; padding: 0.55rem 0.7rem; display: flex; flex-direction: column; gap: 0.35rem; min-height: 120px; }
+  .zone-card-head { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; }
+  .zone-card-label { font-size: 0.74rem; font-weight: 800; color: #0f172a; line-height: 1.1; }
+  .zone-card-pct { font-size: 0.95rem; font-weight: 800; }
+  .zone-card-bar { width: 100%; height: 6px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+  .zone-card-fill { height: 100%; transition: width 0.3s; }
+  .zone-card-meta { display: flex; justify-content: space-between; font-size: 0.72rem; color: #475569; }
+  .zone-card-top { font-size: 0.74rem; color: #0f172a; font-weight: 600; padding: 0.22rem 0.4rem; background: #f1f5f9; border-radius: 6px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .zone-card-foot { font-size: 0.68rem; color: #64748b; text-align: right; }
+
+  .seq-card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1rem; box-shadow: 0 8px 18px rgba(15,23,42,0.05); margin-bottom: 1rem; }
+  .seq-head { margin-bottom: 0.8rem; }
+  .seq-title { font-size: 1.05rem; font-weight: 800; color: #0f172a; }
+  .seq-sub { color: #64748b; font-size: 0.8rem; margin-top: 0.15rem; }
+  .seq-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.7rem; }
+  .seq-step { display: flex; gap: 0.6rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.6rem 0.7rem; }
+  .seq-step-num { width: 32px; height: 32px; min-width: 32px; border-radius: 50%; background: #E20613; color: white; font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; }
+  .seq-step-body { flex: 1; min-width: 0; }
+  .seq-step-title { font-weight: 800; font-size: 0.85rem; color: #0f172a; }
+  .seq-step-sub { font-size: 0.72rem; color: #64748b; margin-bottom: 0.3rem; }
+  .seq-step-list { margin: 0; padding-left: 1.1rem; font-size: 0.74rem; color: #334155; line-height: 1.45; }
+  .seq-uma { background: #fee2e2; color: #991b1b; padding: 0 0.35rem; border-radius: 5px; font-weight: 800; font-size: 0.68rem; }
+  .seq-bay { background: #dbeafe; color: #1e3a8a; padding: 0 0.35rem; border-radius: 5px; font-weight: 700; font-size: 0.68rem; }
+  .seq-meta { color: #64748b; font-size: 0.7rem; margin-left: 0.2rem; }
+  .seq-empty { color: #94a3b8; font-style: italic; }
+
+  .zd-card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1rem; box-shadow: 0 8px 18px rgba(15,23,42,0.05); margin-bottom: 1rem; }
+  .zd-title { font-size: 1.05rem; font-weight: 800; color: #0f172a; margin-bottom: 0.7rem; }
+  .zd-zone { border-top: 1px solid #e2e8f0; padding: 0.8rem 0; }
+  .zd-zone:first-of-type { border-top: none; padding-top: 0; }
+  .zd-zone-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.3rem; }
+  .zd-zone-name { font-weight: 800; color: #0f172a; font-size: 0.92rem; }
+  .zd-zone-meta { font-size: 0.78rem; color: #64748b; }
+  .zd-zone-bar { width: 100%; height: 5px; background: #e2e8f0; border-radius: 999px; overflow: hidden; margin-bottom: 0.6rem; }
+  .zd-zone-fill { height: 100%; }
+  .zd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.5rem; }
+  .zd-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.5rem 0.6rem; }
+  .zd-item-name { font-weight: 700; font-size: 0.78rem; color: #0f172a; }
+  .zd-item-meta { font-size: 0.72rem; color: #475569; margin-top: 0.15rem; }
+  .zd-item-stops { font-size: 0.7rem; color: #64748b; margin-top: 0.2rem; }
+  .zd-empty { color: #94a3b8; font-size: 0.78rem; font-style: italic; padding: 0.4rem 0; }
+  .zd-tag { display: inline-block; padding: 0 0.35rem; border-radius: 5px; font-size: 0.65rem; font-weight: 700; margin-left: 0.3rem; }
+  .zd-tag-ret { background: #dcfce7; color: #166534; }
+
+  .sn-card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1rem; box-shadow: 0 8px 18px rgba(15,23,42,0.05); }
+  .sn-title { font-size: 1.05rem; font-weight: 800; color: #0f172a; margin-bottom: 0.5rem; }
+  .sn-list { margin: 0; padding-left: 1.2rem; font-size: 0.85rem; line-height: 1.55; }
+  .sn-list li { margin-bottom: 0.2rem; }
+  .sn-ok { color: #166534; }
+  .sn-warn { color: #92400e; }
+  .sn-alert { color: #991b1b; font-weight: 700; }
+</style>
+"""
+
+
+def _build_loading_maps_html(plan: dict, truck_code: str, truck_capacity_l: int) -> str:
+    """Plan de carga visual claro: esquema del camión real (4 bahías + 2 toldos),
+    secuencia de picking LIFO, detalle por zona y notas de seguridad."""
+    zones = plan.get("loading_zones", []) or []
+    total_vol = sum(float(z.get("current_volume_l", 0) or 0) for z in zones)
+    total_weight = sum(float(it.get("peso_kg", 0) or 0) for z in zones for it in (z.get("items") or []))
+    n_items = sum(len(z.get("items") or []) for z in zones)
+    util = (total_vol / truck_capacity_l * 100) if truck_capacity_l else 0.0
+
+    bay_loads = [
+        float(z.get("current_volume_l", 0) or 0)
+        for z in zones
+        if str(z.get("zone_id", "")).startswith("bay")
+    ]
+    if bay_loads and max(bay_loads) > 0:
+        balance_pct = (1 - (max(bay_loads) - min(bay_loads)) / max(bay_loads)) * 100
+    else:
+        balance_pct = 100.0
+
+    schematic = _build_truck_schematic_html(plan)
+    sequence = _build_loading_sequence_html(plan)
+    details = _build_zone_details_html(plan)
+    safety = _build_safety_notes_html(plan)
+
+    return _LOADING_PLAN_CSS + f"""
+    <div class="lp-shell">
+      <div class="lp-kpis">
+        <div class="lp-kpi"><div class="lp-kpi-label">Camión</div><div class="lp-kpi-value">{escape(truck_code)}</div><div class="lp-kpi-cap">{truck_capacity_l:.0f} L de capacidad</div></div>
+        <div class="lp-kpi"><div class="lp-kpi-label">Volumen cargado</div><div class="lp-kpi-value">{total_vol:.0f} L</div><div class="lp-kpi-cap">{util:.1f}% utilizado</div></div>
+        <div class="lp-kpi"><div class="lp-kpi-label">Peso total</div><div class="lp-kpi-value">{total_weight:.0f} kg</div><div class="lp-kpi-cap">{n_items} líneas de producto</div></div>
+        <div class="lp-kpi"><div class="lp-kpi-label">Equilibrio bahías</div><div class="lp-kpi-value">{balance_pct:.0f}%</div><div class="lp-kpi-cap">100 % = peso uniforme</div></div>
+      </div>
+      {schematic}
+      {sequence}
+      {details}
+      {safety}
     </div>
     """
 
