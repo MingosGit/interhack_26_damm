@@ -14,6 +14,22 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
 from pathlib import Path
+import re
+
+
+# Una línea sólo es una RECOGIDA real (vacío que vuelve al depósito) si su
+# descripción contiene una de estas palabras. El flag `retornable` del ETL
+# original es demasiado amplio: marca cualquier botella/barril/caja con envase
+# reutilizable, incluso cuando es una entrega de producto LLENO.
+_RETURN_RX = re.compile(
+    r"(VAC[IÍ]OS?|RETORNO|RETORNOS|DEVOLUC[IÍ]ON|RECOGIDA)",
+    re.IGNORECASE,
+)
+
+
+def is_actual_return(material_name: str = "", denominacion: str = "") -> bool:
+    """True sólo cuando la línea es físicamente un envase vacío que vuelve."""
+    return bool(_RETURN_RX.search(f"{material_name} {denominacion}"))
 
 
 @dataclass
@@ -32,59 +48,218 @@ class LoadingZone:
             self.items = []
 
 
-def visualize_loading_plan(stops: list[dict], truck_capacity_l: int) -> dict[str, Any]:
+_ROW_FULL_NAME = {"n": "norte", "s": "sur", "m": "centro"}
+_ROW_LABEL = {"n": "N", "s": "S", "m": "M"}
+
+
+def truck_zone_layout(truck_code: str, truck_capacity_l: int) -> dict:
+    """Devuelve la geometría de zonas de un camión.
+
+    8P  → 2 filas (N/S) × 4 columnas + 2 toldos
+    6P  → 2 filas (N/S) × 3 columnas + 2 toldos
+    FUR → 1 fila (centro)  × 3 columnas, SIN toldos (es furgoneta)
     """
-    Crea un plan de carga visualizado para el camión REAL (4 bahías longitudinales).
-    """
-    # ===== DEFINIR BAHIAS DEL CAMIÓN (estructura real) =====
-    zones = {
-        'bay_no1': LoadingZone(
-            zone_id='bay_no1', zone_name='BAHIA NORTE-1 (frente, lado norte)',
-            width=20, height=4, max_volume_l=3600, access_type='trasero/lateral_norte',
-        ),
-        'bay_no2': LoadingZone(
-            zone_id='bay_no2', zone_name='BAHIA NORTE-2 (atrás, lado norte)',
-            width=20, height=4, max_volume_l=3600, access_type='trasero/lateral_norte',
-        ),
-        'bay_su1': LoadingZone(
-            zone_id='bay_su1', zone_name='BAHIA SUR-1 (frente, lado sur)',
-            width=20, height=4, max_volume_l=3600, access_type='trasero/lateral_sur',
-        ),
-        'bay_su2': LoadingZone(
-            zone_id='bay_su2', zone_name='BAHIA SUR-2 (atrás, lado sur)',
-            width=20, height=4, max_volume_l=3600, access_type='trasero/lateral_sur',
-        ),
-        'toldo_izq': LoadingZone(
-            zone_id='toldo_izq', zone_name='TOLDO LATERAL IZQUIERDO (retornables)',
-            width=8, height=3, max_volume_l=1500, access_type='lateral_deslizable',
-        ),
-        'toldo_der': LoadingZone(
-            zone_id='toldo_der', zone_name='TOLDO LATERAL DERECHO (retornables)',
-            width=8, height=3, max_volume_l=1500, access_type='lateral_deslizable',
-        ),
+    code = (truck_code or "").upper().strip()
+    if code == "8P":
+        n_rows, n_cols, has_toldos = 2, 4, True
+    elif code == "6P":
+        n_rows, n_cols, has_toldos = 2, 3, True
+    elif code in ("FUR", "3P", "FURGON", "FURGONETA"):
+        n_rows, n_cols, has_toldos = 1, 3, False
+    else:
+        n_rows, n_cols, has_toldos = 2, 3, True  # fallback razonable (6P)
+
+    n_bays = n_rows * n_cols
+    bay_capacity_l = float(truck_capacity_l) / n_bays if n_bays else 0.0
+    # Toldo lateral ≈ 1/6 del volumen total por lado (~16%); dos toldos ≈ 33%
+    toldo_capacity_l = (float(truck_capacity_l) / 6.0) if has_toldos else 0.0
+    row_codes = ["n", "s"] if n_rows == 2 else ["m"]
+
+    return {
+        "truck_code": code or "?",
+        "n_rows": n_rows,
+        "n_cols": n_cols,
+        "n_bays": n_bays,
+        "row_codes": row_codes,
+        "bay_capacity_l": bay_capacity_l,
+        "has_toldos": has_toldos,
+        "toldo_capacity_l": toldo_capacity_l,
     }
-    
-    # ===== CLASIFICAR ITEMS Y DISTRIBUIR EQUILIBRADAMENTE =====
-    all_items_by_uma = defaultdict(lambda: {'cantidad': 0, 'vol_l': 0, 'peso_kg': 0, 'stops': []})
-    
+
+
+def _build_zones_for_truck(layout: dict) -> tuple[dict, list[str]]:
+    """Crea el dict de LoadingZone y la lista ordenada de bay_ids para el camión."""
+    zones: dict[str, LoadingZone] = {}
+    bay_ids: list[str] = []
+    bay_cap = int(round(layout["bay_capacity_l"]))
+    for rcode in layout["row_codes"]:
+        full = _ROW_FULL_NAME[rcode]
+        for c in range(1, layout["n_cols"] + 1):
+            zid = f"bay_{rcode}{c}"
+            bay_ids.append(zid)
+            zones[zid] = LoadingZone(
+                zone_id=zid,
+                zone_name=f"BAHIA {_ROW_LABEL[rcode]}-{c} (palet {c} de {layout['n_cols']}, lado {full})",
+                width=20, height=4,
+                max_volume_l=bay_cap,
+                access_type=f"trasero/lateral_{full}",
+            )
+    if layout["has_toldos"]:
+        toldo_cap = int(round(layout["toldo_capacity_l"]))
+        zones["toldo_izq"] = LoadingZone(
+            zone_id="toldo_izq", zone_name="TOLDO LATERAL IZQUIERDO (retornables)",
+            width=8, height=3, max_volume_l=toldo_cap,
+            access_type="lateral_deslizable",
+        )
+        zones["toldo_der"] = LoadingZone(
+            zone_id="toldo_der", zone_name="TOLDO LATERAL DERECHO (retornables)",
+            width=8, height=3, max_volume_l=toldo_cap,
+            access_type="lateral_deslizable",
+        )
+    return zones, bay_ids
+
+
+def _split_piece(item: dict, chunk_vol: float, total_vol: float, suffix: str) -> dict:
+    """Crea una copia de `item` con volumen/peso/cantidad escalados al chunk."""
+    if total_vol <= 0:
+        ratio = 0.0
+    else:
+        ratio = chunk_vol / total_vol
+    piece = dict(item)
+    piece['vol_l'] = chunk_vol
+    piece['peso_kg'] = float(item.get('peso_kg', 0) or 0) * ratio
+    cantidad = item.get('cantidad', 0) or 0
+    piece['cantidad'] = max(1, int(round(cantidad * ratio))) if cantidad else 0
+    if chunk_vol < total_vol - 1e-6:
+        piece['name'] = f"{item['name']}{suffix}"
+    return piece
+
+
+def _pack_into_bays_safely(
+    item: dict,
+    bay_ids: list[str],
+    bay_loads: dict[str, float],
+    zones: dict,
+    bay_cap: float,
+) -> None:
+    """Coloca un item en bahías sin superar la capacidad. Si el item es más
+    grande que el espacio libre, se parte en varios trozos. Última parte si
+    no queda sitio: irá a la bahía menos cargada (puede pasarse, marcado como
+    overload — el caller debería notificarlo)."""
+    remaining = float(item.get('vol_l', 0) or 0)
+    total = remaining
+    if remaining <= 0:
+        return
+    part_idx = 0
+    while remaining > 1e-6:
+        free_per_bay = {b: bay_cap - bay_loads[b] for b in bay_ids}
+        target, free = max(free_per_bay.items(), key=lambda kv: kv[1])
+        if free <= 1e-6:
+            # Todo lleno: último recurso, ir a la menos cargada y aceptar overload
+            target = min(bay_loads, key=bay_loads.get)
+            chunk = remaining
+        else:
+            chunk = min(remaining, free)
+        suffix = f" · parte {part_idx + 1}" if chunk < total - 1e-6 or part_idx > 0 else ""
+        piece = _split_piece(item, chunk, total, suffix)
+        zones[target].items.append(piece)
+        bay_loads[target] += chunk
+        remaining -= chunk
+        part_idx += 1
+        if free <= 1e-6:
+            break  # safety
+
+
+def _pack_into_toldos_safely(
+    item: dict,
+    toldo_loads: dict[str, float],
+    zones: dict,
+    toldo_cap: float,
+) -> bool:
+    """Mete el item en toldos sin superar capacidad, dividiéndolo si hace falta.
+    Devuelve True si TODO el volumen cupo. Si no, devuelve False y deja el
+    sobrante en `item` para que el caller lo redirija a bahías."""
+    remaining = float(item.get('vol_l', 0) or 0)
+    total = remaining
+    if remaining <= 0:
+        return True
+    part_idx = 0
+    while remaining > 1e-6:
+        free_per_toldo = {t: toldo_cap - toldo_loads[t] for t in toldo_loads}
+        target, free = max(free_per_toldo.items(), key=lambda kv: kv[1])
+        if free <= 1e-6:
+            # Toldos llenos: el resto vuelve al caller para ir a bahías.
+            item['vol_l'] = remaining
+            item['peso_kg'] = float(item.get('peso_kg', 0) or 0) * (remaining / total) if total > 0 else 0
+            cant = item.get('cantidad', 0) or 0
+            item['cantidad'] = max(1, int(round(cant * remaining / total))) if cant and total > 0 else cant
+            if remaining < total - 1e-6:
+                item['name'] = f"{item['name']} · resto"
+            return False
+        chunk = min(remaining, free)
+        suffix = f" · parte {part_idx + 1}" if chunk < total - 1e-6 or part_idx > 0 else ""
+        piece = _split_piece(item, chunk, total, suffix)
+        zones[target].items.append(piece)
+        toldo_loads[target] += chunk
+        remaining -= chunk
+        part_idx += 1
+    return True
+
+
+def visualize_loading_plan(
+    stops: list[dict],
+    truck_capacity_l: int,
+    truck_code: str = "6P",
+) -> dict[str, Any]:
+    """Plan de carga visualizado, adaptado al tipo de camión.
+
+    - 8P: 4 jaulas × 2 palets (N/S) + 2 toldos.
+    - 6P: 3 jaulas × 2 palets (N/S) + 2 toldos.
+    - FUR (3P): 3 jaulas × 1 palet, sin toldos (furgoneta).
+
+    Los retornables van a los toldos hasta su capacidad real; lo que sobra se
+    reparte en las bahías para no superar nunca el 100% de los toldos.
+    """
+    layout = truck_zone_layout(truck_code, truck_capacity_l)
+    zones, bay_ids = _build_zones_for_truck(layout)
+    has_toldos = layout["has_toldos"]
+    toldo_cap = layout["toldo_capacity_l"]
+
+    # ===== AGREGAR ITEMS POR MATERIAL+UMA =====
+    all_items_by_uma = defaultdict(lambda: {
+        'cantidad': 0, 'vol_l': 0, 'peso_kg': 0, 'stops': [],
+        'denominacion': '', 'is_return': False,
+    })
+
     for stop in stops:
         for mat in stop.get('materiales', []):
             uma = mat.get('uma', 'UNIT')
-            mat_key = f"{mat.get('material', '?')} ({uma})"
-            all_items_by_uma[mat_key]['cantidad'] += mat.get('cantidad', 0)
-            all_items_by_uma[mat_key]['vol_l'] += mat.get('vol_l', 0)
-            all_items_by_uma[mat_key]['peso_kg'] += mat.get('peso_kg', 0)
-            all_items_by_uma[mat_key]['stops'].append(stop['order'])
-            all_items_by_uma[mat_key]['retornable'] = mat.get('retornable', False)
-    
-    heavy_items = []  
-    light_items = []  
-    returnable_items = []
-    
+            mat_code = str(mat.get('material', '?'))
+            mat_key = f"{mat_code} ({uma})"
+            entry = all_items_by_uma[mat_key]
+            entry['cantidad'] += mat.get('cantidad', 0)
+            entry['vol_l'] += mat.get('vol_l', 0)
+            entry['peso_kg'] += mat.get('peso_kg', 0)
+            entry['stops'].append(stop['order'])
+            denom = str(mat.get('denominacion', '') or '')
+            if denom and not entry['denominacion']:
+                entry['denominacion'] = denom
+            # Recogida REAL (vacío que vuelve) — se detecta por descripción,
+            # no por si el envase es retornable. Una botella de whisky en
+            # envase retornable que se ENTREGA llena NO es una recogida.
+            if is_actual_return(mat_code, denom):
+                entry['is_return'] = True
+
+    heavy_items: list[dict] = []
+    light_items: list[dict] = []
+    returnable_items: list[dict] = []
+
     uma_priority = {'BRL': 0, 'BID': 1, 'BOT': 2, 'CAJ': 3, 'UN': 4, 'TB': 4, 'EST': 3}
-    
-    for item_key, item_data in sorted(all_items_by_uma.items(), 
-                                       key=lambda x: uma_priority.get(x[0].split('(')[-1].rstrip(')'), 99)):
+
+    for item_key, item_data in sorted(
+        all_items_by_uma.items(),
+        key=lambda x: uma_priority.get(x[0].split('(')[-1].rstrip(')'), 99),
+    ):
         uma = item_key.split('(')[-1].rstrip(')')
         item_obj = {
             'name': item_key,
@@ -92,34 +267,56 @@ def visualize_loading_plan(stops: list[dict], truck_capacity_l: int) -> dict[str
             'vol_l': item_data['vol_l'],
             'peso_kg': item_data['peso_kg'],
             'stops': item_data['stops'],
-            'retornable': item_data.get('retornable', False),
+            'retornable': item_data['is_return'],
+            'denominacion': item_data['denominacion'],
         }
-        
-        if item_data.get('retornable', False):
+        if item_data['is_return']:
             returnable_items.append(item_obj)
         elif uma in ('BRL', 'BID', 'BOT'):
             heavy_items.append(item_obj)
         else:
             light_items.append(item_obj)
-    
-    bay_order = ['bay_no1', 'bay_no2', 'bay_su1', 'bay_su2']
-    bay_loads = {bay: 0.0 for bay in bay_order}
-    
-    all_sorted = sorted(heavy_items + light_items, key=lambda x: x['peso_kg'], reverse=True)
+
+    # ===== REPARTO EN BAHÍAS (entrega) — packing con tope de capacidad =====
+    bay_loads = {bid: 0.0 for bid in bay_ids}
+    bay_cap = layout["bay_capacity_l"]
+    all_sorted = sorted(heavy_items + light_items, key=lambda x: x['vol_l'], reverse=True)
     for item in all_sorted:
-        min_bay = min(bay_loads, key=bay_loads.get)
-        zones[min_bay].items.append(item)
-        bay_loads[min_bay] += item['vol_l']
-    
-    for i, item in enumerate(returnable_items):
-        toldo = 'toldo_izq' if i % 2 == 0 else 'toldo_der'
-        zones[toldo].items.append(item)
-    
-    ascii_plan = generate_truck_ascii_plan(zones)
-    safety_notes = generate_safety_notes(zones)
-    warehouse_preparation = generate_warehouse_picking_order(stops, zones)
-    
+        _pack_into_bays_safely(item, bay_ids, bay_loads, zones, bay_cap)
+
+    # ===== REPARTO DE RECOGIDAS =====
+    # Ordenamos las recogidas por volumen DESC para que las grandes encuentren
+    # toldo libre antes de que se vaya llenando con piezas pequeñas.
+    returnable_items.sort(key=lambda x: x['vol_l'], reverse=True)
+
+    if has_toldos:
+        toldo_loads = {"toldo_izq": 0.0, "toldo_der": 0.0}
+        for item in returnable_items:
+            placed = _pack_into_toldos_safely(
+                item, toldo_loads, zones, toldo_cap,
+            )
+            if not placed:
+                # No cupo en ningún toldo: lo enviamos a bahías sin desbordar.
+                _pack_into_bays_safely(item, bay_ids, bay_loads, zones, bay_cap)
+    else:
+        for item in returnable_items:
+            _pack_into_bays_safely(item, bay_ids, bay_loads, zones, bay_cap)
+
+    ascii_plan = generate_truck_ascii_plan(zones, layout)
+    safety_notes = generate_safety_notes(zones, layout)
+    warehouse_preparation = generate_warehouse_picking_order(stops, zones, layout)
+
     return {
+        'truck_code': layout["truck_code"],
+        'truck_layout': {
+            'n_rows': layout["n_rows"],
+            'n_cols': layout["n_cols"],
+            'n_bays': layout["n_bays"],
+            'has_toldos': layout["has_toldos"],
+            'bay_capacity_l': layout["bay_capacity_l"],
+            'toldo_capacity_l': layout["toldo_capacity_l"],
+            'row_codes': layout["row_codes"],
+        },
         'ascii_plan': ascii_plan,
         'loading_zones': [
             {
@@ -137,165 +334,171 @@ def visualize_loading_plan(stops: list[dict], truck_capacity_l: int) -> dict[str
     }
 
 
-def generate_truck_ascii_plan(zones: dict) -> str:
-    """Genera una vista ASCII del camión cargado."""
+def _bay_ids_from_layout(layout: dict) -> list[str]:
+    return [
+        f"bay_{r}{c}"
+        for r in layout["row_codes"]
+        for c in range(1, layout["n_cols"] + 1)
+    ]
+
+
+def generate_truck_ascii_plan(zones: dict, layout: dict) -> str:
+    """Genera una vista ASCII del camión cargado, adaptada al layout."""
     lines = []
-    
-    lines.append("\n" + "="*80)
-    lines.append("CAMION 6P - VISTA DESDE ARRIBA (PLANO TOP-DOWN)")
-    lines.append("="*80)
-    lines.append("(Eje Y = dirección de marcha frente->atrás)")
-    lines.append("(Eje X = ancho del camión lado norte->sur)")
+    truck_code = layout.get("truck_code", "?")
+    n_rows = layout["n_rows"]
+    n_cols = layout["n_cols"]
+    has_toldos = layout["has_toldos"]
+    bay_ids = _bay_ids_from_layout(layout)
+
+    total_truck_cap = int(round(layout["bay_capacity_l"] * layout["n_bays"]))
+
+    lines.append("\n" + "=" * 80)
+    lines.append(f"CAMION {truck_code} - VISTA DESDE ARRIBA (PLANO TOP-DOWN)")
+    lines.append("=" * 80)
+    lines.append(f"({n_rows} fila{'s' if n_rows > 1 else ''} × {n_cols} columnas · "
+                 f"{'con' if has_toldos else 'sin'} toldos laterales)")
     lines.append("")
-    
-    bay_data = {
-        'bay_no1': (zones['bay_no1'], 'NO1'),
-        'bay_no2': (zones['bay_no2'], 'NO2'),
-        'bay_su1': (zones['bay_su1'], 'SU1'),
-        'bay_su2': (zones['bay_su2'], 'SU2'),
-    }
-    
     lines.append("  FRENTE DEL VEHICULO (Cabina)")
-    lines.append("  +---+---+---+---+---+---+---+---+---+---+")
-    lines.append("  | TOLDO                  TOLDO LATERAL |")
-    lines.append("  | LATERAL                 DERECHO      |")
-    lines.append("  | IZQ                                   |")
-    lines.append("  +---+---+---+---+---+---+---+---+---+---+")
-    
-    for row_num in range(1, 3):
-        bay_n = f'bay_no{row_num}'
-        bay_s = f'bay_su{row_num}'
-        zone_n, label_n = bay_data[bay_n]
-        zone_s, label_s = bay_data[bay_s]
-        
-        vol_n = sum(i['vol_l'] for i in zone_n.items)
-        vol_s = sum(i['vol_l'] for i in zone_s.items)
-        pct_n = int(100 * vol_n / zone_n.max_volume_l) if zone_n.max_volume_l else 0
-        pct_s = int(100 * vol_s / zone_s.max_volume_l) if zone_s.max_volume_l else 0
-        
-        bar_n = '#' * (pct_n // 5) + '.' * (20 - pct_n // 5)
-        bar_s = '#' * (pct_s // 5) + '.' * (20 - pct_s // 5)
-        
-        lines.append(f"  | {bar_n} | {bar_s} |  ")
-        lines.append(f"  | {label_n}: {vol_n:5.0f}L {pct_n:3d}%     | {label_s}: {vol_s:5.0f}L {pct_s:3d}%     |")
-        
-        top_n = sorted(zone_n.items, key=lambda x: x['vol_l'], reverse=True)[:1]
-        top_s = sorted(zone_s.items, key=lambda x: x['vol_l'], reverse=True)[:1]
-        prod_n = top_n[0]['name'][:20] if top_n else "VACIO"
-        prod_s = top_s[0]['name'][:20] if top_s else "VACIO"
-        lines.append(f"  | {prod_n[:20]:<20} | {prod_s[:20]:<20} |")
-        
-    vol_izq = sum(i['vol_l'] for i in zones['toldo_izq'].items)
-    vol_der = sum(i['vol_l'] for i in zones['toldo_der'].items)
-    pct_izq = int(100 * vol_izq / zones['toldo_izq'].max_volume_l) if zones['toldo_izq'].max_volume_l else 0
-    pct_der = int(100 * vol_der / zones['toldo_der'].max_volume_l) if zones['toldo_der'].max_volume_l else 0
-    
-    lines.append("  +---+---+---+---+---+---+---+---+---+---+")
-    lines.append(f"  | TOLDO IZQ: {vol_izq:5.0f}L {pct_izq:3d}% | TOLDO DER: {vol_der:5.0f}L {pct_der:3d}% |")
-    lines.append("  | (Retornables - Lado Izq/Derecho)      |")
-    lines.append("  +---+---+---+---+---+---+---+---+---+---+")
+
+    if has_toldos:
+        lines.append("  [TOLDO IZQ ←]                         [→ TOLDO DER]")
+
+    sep = "  +" + "------+" * n_cols
+    lines.append(sep)
+    for rcode in layout["row_codes"]:
+        cells = []
+        for c in range(1, n_cols + 1):
+            zid = f"bay_{rcode}{c}"
+            zone = zones[zid]
+            vol = sum(i['vol_l'] for i in zone.items)
+            pct = int(100 * vol / zone.max_volume_l) if zone.max_volume_l else 0
+            cells.append(f" {_ROW_LABEL[rcode]}{c}{pct:3d}%")
+        lines.append("  |" + "|".join(cells) + " |")
+        lines.append(sep)
+
+    if has_toldos:
+        vol_izq = sum(i['vol_l'] for i in zones['toldo_izq'].items)
+        vol_der = sum(i['vol_l'] for i in zones['toldo_der'].items)
+        cap_izq = zones['toldo_izq'].max_volume_l
+        cap_der = zones['toldo_der'].max_volume_l
+        pct_izq = int(100 * vol_izq / cap_izq) if cap_izq else 0
+        pct_der = int(100 * vol_der / cap_der) if cap_der else 0
+        lines.append(f"  TOLDO IZQ: {vol_izq:5.0f}/{cap_izq}L ({pct_izq:3d}%)   "
+                     f"TOLDO DER: {vol_der:5.0f}/{cap_der}L ({pct_der:3d}%)")
+
     lines.append("              ||")
     lines.append("           RAMPA TRASERA (descarga principal)")
-    lines.append("="*80)
-    
+    lines.append("=" * 80)
+
     lines.append("\n[RESUMEN DE OCUPACION]")
-    lines.append("-"*80)
-    total_vol = sum(i['vol_l'] for i in sum([z.items for z in zones.values()], []))
-    lines.append(f"VOLUMEN TOTAL: {total_vol:7.1f} L / {14400} L ({100*total_vol/14400:5.1f}%)")
-    
+    lines.append("-" * 80)
+    total_vol = sum(i['vol_l'] for z in zones.values() for i in z.items)
+    pct_total = (100 * total_vol / total_truck_cap) if total_truck_cap else 0
+    lines.append(f"VOLUMEN TOTAL: {total_vol:7.1f} L / {total_truck_cap} L ({pct_total:5.1f}%)")
+
     lines.append("\nDISTRIBUCION POR BAHIA:")
-    for bay_id, (zone, label) in bay_data.items():
+    for zid in bay_ids:
+        zone = zones[zid]
         vol = sum(i['vol_l'] for i in zone.items)
         kg = sum(i['peso_kg'] for i in zone.items)
         pct = 100 * vol / zone.max_volume_l if zone.max_volume_l else 0
+        label = zid.replace("bay_", "").upper()
         lines.append(f"  {label}: {vol:7.1f}L ({pct:5.1f}%) | {kg:7.1f}kg")
-    
-    lines.append("\nRETORNABLES (Toldos Laterales):")
-    lines.append(f"  Toldo Izquierdo: {vol_izq:7.1f}L ({pct_izq:5.1f}%)")
-    lines.append(f"  Toldo Derecho:   {vol_der:7.1f}L ({pct_der:5.1f}%)")
-    
-    lines.append("\n" + "-"*80)
+
+    if has_toldos:
+        lines.append("\nRETORNABLES (Toldos Laterales):")
+        lines.append(f"  Toldo Izquierdo: {sum(i['vol_l'] for i in zones['toldo_izq'].items):7.1f}L "
+                     f"/ {zones['toldo_izq'].max_volume_l}L")
+        lines.append(f"  Toldo Derecho:   {sum(i['vol_l'] for i in zones['toldo_der'].items):7.1f}L "
+                     f"/ {zones['toldo_der'].max_volume_l}L")
+    else:
+        lines.append("\nRETORNABLES: distribuidos en bahías (este camión no tiene toldos)")
+
+    lines.append("\n" + "-" * 80)
     lines.append("[DETALLE POR BAHIA]")
-    lines.append("-"*80)
-    
-    for bay_id, (zone, label) in bay_data.items():
+    lines.append("-" * 80)
+    for zid in bay_ids:
+        zone = zones[zid]
+        label = zid.replace("bay_", "").upper()
         lines.append(f"\n{label} - {zone.zone_name}")
         lines.append(f"  Capacidad: {zone.max_volume_l}L")
-        lines.append(f"  Actual: {sum(i['vol_l'] for i in zone.items):.0f}L")
-        lines.append(f"  Acceso: {zone.access_type}")
+        lines.append(f"  Actual:    {sum(i['vol_l'] for i in zone.items):.0f}L")
+        lines.append(f"  Acceso:    {zone.access_type}")
         for item in sorted(zone.items, key=lambda x: x['vol_l'], reverse=True):
             lines.append(f"    * {item['name']:30s} {item['vol_l']:7.1f}L {item['peso_kg']:7.1f}kg")
-    
-    lines.append(f"\nTOLDO LATERAL IZQUIERDO (Retornables)")
-    lines.append(f"  Capacidad: {zones['toldo_izq'].max_volume_l}L")
-    for item in zones['toldo_izq'].items:
-        lines.append(f"    * {item['name']:30s} {item['vol_l']:7.1f}L")
-    
-    lines.append(f"\nTOLDO LATERAL DERECHO (Retornables)")
-    lines.append(f"  Capacidad: {zones['toldo_der'].max_volume_l}L")
-    for item in zones['toldo_der'].items:
-        lines.append(f"    * {item['name']:30s} {item['vol_l']:7.1f}L")
-    
-    lines.append("\n" + "="*80)
-    
+
+    if has_toldos:
+        for tid, tlabel in [("toldo_izq", "TOLDO LATERAL IZQUIERDO"),
+                            ("toldo_der", "TOLDO LATERAL DERECHO")]:
+            lines.append(f"\n{tlabel} (Retornables)")
+            lines.append(f"  Capacidad: {zones[tid].max_volume_l}L")
+            for item in zones[tid].items:
+                lines.append(f"    * {item['name']:30s} {item['vol_l']:7.1f}L")
+
+    lines.append("\n" + "=" * 80)
     return "\n".join(lines)
 
 
-def generate_safety_notes(zones: dict) -> list[str]:
-    """Genera notas de seguridad para la carga."""
-    notes = []
-    
-    bay_loads = {
-        'bay_no1': sum(i['vol_l'] for i in zones['bay_no1'].items),
-        'bay_no2': sum(i['vol_l'] for i in zones['bay_no2'].items),
-        'bay_su1': sum(i['vol_l'] for i in zones['bay_su1'].items),
-        'bay_su2': sum(i['vol_l'] for i in zones['bay_su2'].items),
-    }
-    
-    max_load = max(bay_loads.values()) if bay_loads.values() else 0
-    min_load = min(bay_loads.values()) if bay_loads.values() else 0
-    imbalance = (max_load - min_load) / (max_load + 0.001) if max_load > 0 else 0
-    
-    if imbalance > 0.3:
-        notes.append(f"! ALERTA: Distribucion desequilibrada entre bahías ({imbalance*100:.0f}%)")
-    elif imbalance > 0.15:
-        notes.append(f"⚠ Bahías con cargas desiguales - verifica estabilidad")
-    else:
-        notes.append("✓ Distribucion equilibrada entre bahías")
-    
-    for bay_id in ['bay_no1', 'bay_no2', 'bay_su1', 'bay_su2']:
-        zone = zones[bay_id]
+def generate_safety_notes(zones: dict, layout: dict) -> list[str]:
+    """Genera notas de seguridad para la carga, adaptadas al layout."""
+    notes: list[str] = []
+    bay_ids = _bay_ids_from_layout(layout)
+
+    bay_loads = {bid: sum(i['vol_l'] for i in zones[bid].items) for bid in bay_ids}
+    if bay_loads:
+        max_load = max(bay_loads.values())
+        min_load = min(bay_loads.values())
+        imbalance = (max_load - min_load) / (max_load + 0.001) if max_load > 0 else 0
+        if imbalance > 0.3:
+            notes.append(f"! ALERTA: Distribucion desequilibrada entre bahías ({imbalance*100:.0f}%)")
+        elif imbalance > 0.15:
+            notes.append("⚠ Bahías con cargas desiguales - verifica estabilidad")
+        else:
+            notes.append("✓ Distribucion equilibrada entre bahías")
+
+    for bid in bay_ids:
+        zone = zones[bid]
         vol = sum(i['vol_l'] for i in zone.items)
         if vol > zone.max_volume_l * 1.1:
             notes.append(f"! ALERTA: BAHIA SOBRECARGADA ({zone.zone_name}: {vol:.0f}L > {zone.max_volume_l}L)")
         elif vol > zone.max_volume_l * 0.9:
             notes.append(f"⚠ {zone.zone_name} casi llena ({vol:.0f}L / {zone.max_volume_l}L)")
-    
-    toldo_izq_vol = sum(i['vol_l'] for i in zones['toldo_izq'].items)
-    toldo_der_vol = sum(i['vol_l'] for i in zones['toldo_der'].items)
-    
-    if toldo_izq_vol > 0 or toldo_der_vol > 0:
-        notes.append(f"✓ Retornables separados en toldos laterales ({toldo_izq_vol+toldo_der_vol:.0f}L)")
-        if toldo_izq_vol > 0:
-            notes.append(f"  - Toldo Izquierdo: {toldo_izq_vol:.0f}L (deslizable)")
-        if toldo_der_vol > 0:
-            notes.append(f"  - Toldo Derecho: {toldo_der_vol:.0f}L (deslizable)")
+
+    if layout["has_toldos"]:
+        toldo_izq_vol = sum(i['vol_l'] for i in zones['toldo_izq'].items)
+        toldo_der_vol = sum(i['vol_l'] for i in zones['toldo_der'].items)
+        toldo_cap = zones['toldo_izq'].max_volume_l
+        if toldo_izq_vol > 0 or toldo_der_vol > 0:
+            notes.append(f"✓ Retornables en toldos laterales ({toldo_izq_vol + toldo_der_vol:.0f}L "
+                         f"de {2 * toldo_cap}L disponibles)")
+            if toldo_izq_vol > 0:
+                notes.append(f"  - Toldo Izquierdo: {toldo_izq_vol:.0f}L / {toldo_cap}L")
+            if toldo_der_vol > 0:
+                notes.append(f"  - Toldo Derecho:   {toldo_der_vol:.0f}L / {toldo_cap}L")
+        else:
+            notes.append("ℹ Sin retornables en esta ruta")
     else:
-        notes.append("ℹ Sin retornables en esta ruta")
-    
+        notes.append("ℹ Camión sin toldos laterales: retornables ubicados en bahías")
+
     notes.append("")
     notes.append("INSTRUCCIONES DE CARGA:")
     notes.append("1. Usar acceso trasero (rampa principal) para bahías")
-    notes.append("2. Distribuir peso equilibradamente entre bahías N-S")
-    notes.append("3. Retornables siempre en toldos laterales (acceso fácil)")
+    if layout["n_rows"] > 1:
+        notes.append("2. Distribuir peso equilibradamente entre bahías N-S")
+    else:
+        notes.append("2. Distribuir peso equilibradamente a lo largo de la cabina")
+    if layout["has_toldos"]:
+        notes.append("3. Retornables siempre en toldos laterales cuando quepan (acceso fácil)")
+    else:
+        notes.append("3. Retornables al fondo: acceso por rampa trasera")
     notes.append("4. Asegurar cargas con flejes metalicos")
     notes.append("5. Respetar altura maxima techo (2.1m)")
     notes.append("6. Revisar presion de neumaticos antes de salir")
-    
     return notes
 
 
-def generate_warehouse_picking_order(stops: list[dict], zones: dict) -> list[dict]:
+def generate_warehouse_picking_order(stops: list[dict], zones: dict, layout: dict) -> list[dict]:
     """Genera el orden de picking en almacén (LIFO - último cliente primero)."""
     picking_order = []
     
@@ -316,14 +519,16 @@ def generate_warehouse_picking_order(stops: list[dict], zones: dict) -> list[dic
             'picking_sequence': []
         }
         
+        # Mapeo informativo UMA → tipo de zona, según el layout del camión
+        bay_ids = _bay_ids_from_layout(layout)
+        # Pesados (BRL/BID/BOT) → bahías delanteras (estabilidad). Resto → traseras.
+        n_cols = layout["n_cols"]
+        front_cols = max(1, n_cols // 2)
+        front_bays = "/".join(bid for bid in bay_ids if int(bid[-1]) <= front_cols) or bay_ids[0]
+        back_bays = "/".join(bid for bid in bay_ids if int(bid[-1]) > front_cols) or bay_ids[-1]
         uma_to_bay = {
-            'BRL': 'bay_no1/bay_su1',  
-            'BID': 'bay_no1/bay_su1',  
-            'BOT': 'bay_no1/bay_su1',  
-            'CAJ': 'bay_no2/bay_su2',  
-            'EST': 'bay_no2/bay_su2',  
-            'UN': 'bay_no2/bay_su2',   
-            'TB': 'bay_no2/bay_su2',   
+            'BRL': front_bays, 'BID': front_bays, 'BOT': front_bays,
+            'CAJ': back_bays, 'EST': back_bays, 'UN': back_bays, 'TB': back_bays,
         }
         
         for uma in sorted(materiales_by_uma.keys(), key=lambda x: uma_priority.get(x, 99)):

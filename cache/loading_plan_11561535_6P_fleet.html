@@ -40,7 +40,7 @@
     <div class="subtitle">Visualización ejecutiva del plan de carga, secuencia de picking y estabilidad por bahías.</div>
 
     <div class="kpis">
-        <div class="kpi"><div class="label">Zonas</div><div class="value">6</div><div class="small">4 bahías + 2 toldos</div></div>
+        <div class="kpi"><div class="label">Zonas</div><div class="value">8</div><div class="small">4 bahías + 2 toldos</div></div>
         <div class="kpi"><div class="label">Paradas</div><div class="value">25</div><div class="small">Preparación en almacén</div></div>
         <div class="kpi"><div class="label">Notas</div><div class="value">12</div><div class="small">Seguridad y equilibrio</div></div>
         <div class="kpi"><div class="label">Capacidad visual</div><div class="value">4-bay</div><div class="small">Top-down, N-S</div></div>
@@ -52,25 +52,16 @@
 ================================================================================
 CAMION 6P - VISTA DESDE ARRIBA (PLANO TOP-DOWN)
 ================================================================================
-(Eje Y = dirección de marcha frente-&gt;atrás)
-(Eje X = ancho del camión lado norte-&gt;sur)
+(2 filas × 3 columnas · con toldos laterales)
 
   FRENTE DEL VEHICULO (Cabina)
-  +---+---+---+---+---+---+---+---+---+---+
-  | TOLDO                  TOLDO LATERAL |
-  | LATERAL                 DERECHO      |
-  | IZQ                                   |
-  +---+---+---+---+---+---+---+---+---+---+
-  | ###................. | ###................. |  
-  | NO1:   627L  17%     | SU1:   632L  17%     |
-  | VE32SP (CAJ)         | 3ENV1281 (CAJ)       |
-  | ###................. | ###................. |  
-  | NO2:   625L  17%     | SU2:   652L  18%     |
-  | VE12SP (CAJ)         | 0LT0034 (CAJ)        |
-  +---+---+---+---+---+---+---+---+---+---+
-  | TOLDO IZQ:  2457L 163% | TOLDO DER:  1379L  91% |
-  | (Retornables - Lado Izq/Derecho)      |
-  +---+---+---+---+---+---+---+---+---+---+
+  [TOLDO IZQ ←]                         [→ TOLDO DER]
+  +------+------+------+
+  | N1 26%| N2 26%| N3 26% |
+  +------+------+------+
+  | S1 26%| S2 26%| S3 26% |
+  +------+------+------+
+  TOLDO IZQ:  2190/2400L ( 91%)   TOLDO DER:   365/2400L ( 15%)
               ||
            RAMPA TRASERA (descarga principal)
 ================================================================================
@@ -80,147 +71,159 @@ CAMION 6P - VISTA DESDE ARRIBA (PLANO TOP-DOWN)
 VOLUMEN TOTAL:  6372.5 L / 14400 L ( 44.3%)
 
 DISTRIBUCION POR BAHIA:
-  NO1:   626.7L ( 17.4%) |   442.7kg
-  NO2:   624.9L ( 17.4%) |   532.1kg
-  SU1:   632.4L ( 17.6%) |   532.2kg
-  SU2:   652.5L ( 18.1%) |   580.8kg
+  N1:   635.8L ( 26.5%) |  1115.9kg
+  N2:   636.3L ( 26.5%) |   616.8kg
+  N3:   636.4L ( 26.5%) |   706.8kg
+  S1:   636.3L ( 26.5%) |   536.6kg
+  S2:   636.4L ( 26.5%) |   509.4kg
+  S3:   636.3L ( 26.5%) |   493.3kg
 
 RETORNABLES (Toldos Laterales):
-  Toldo Izquierdo:  2457.3L (163.0%)
-  Toldo Derecho:    1378.7L ( 91.0%)
+  Toldo Izquierdo:  2190.0L / 2400L
+  Toldo Derecho:     365.0L / 2400L
 
 --------------------------------------------------------------------------------
 [DETALLE POR BAHIA]
 --------------------------------------------------------------------------------
 
-NO1 - BAHIA NORTE-1 (frente, lado norte)
-  Capacidad: 3600L
-  Actual: 627L
-  Acceso: trasero/lateral_norte
-    * VE32SP (CAJ)                     252.0L   273.8kg
-    * 3ENV0021 (CAJ)                   150.0L    50.0kg
-    * 0AM1291 (CAJ)                     60.0L    20.0kg
-    * 0LM0661 (CAJ)                     30.0L    10.0kg
-    * 0CF0412 (CAJ)                     30.0L    10.0kg
-    * 0CF0124 (CAJ)                     30.0L    10.0kg
-    * UE902 (UN)                        21.7L     3.1kg
-    * 0RF0296 (CAJ)                     12.0L    14.0kg
-    * 0LT0090 (CAJ)                     12.0L    13.0kg
-    * 0ZU0018 (CAJ)                      9.6L    16.8kg
-    * 0RF0022 (CAJ)                      7.9L     8.6kg
-    * 0AM1281 (UN)                       6.7L     5.0kg
-    * 0ZU0026 (CAJ)                      4.8L     8.4kg
-
-NO2 - BAHIA NORTE-2 (atrás, lado norte)
-  Capacidad: 3600L
-  Actual: 625L
-  Acceso: trasero/lateral_norte
-    * VE12SP (CAJ)                     204.0L   219.3kg
-    * 0RF0287 (CAJ)                    101.0L    25.6kg
-    * 0LT0235 (CAJ)                     54.0L    58.5kg
-    * 0RF1697 (CAJ)                     39.6L    43.0kg
-    * 0AM1290 (CAJ)                     30.0L    32.0kg
-    * 0CF0420 (CAJ)                     30.0L    10.0kg
-    * 0CF0411 (CAJ)                     30.0L    10.0kg
-    * 0CF0421 (CAJ)                     30.0L    10.0kg
-    * 0LT0033 (CAJ)                     27.0L    27.0kg
-    * 0RF0169 (CAJ)                     24.0L    26.2kg
-    * 0AG0004 (CAJ)                     12.0L    13.0kg
-    * 0VE0465 (CAJ)                     10.3L     4.5kg
-    * TB8 (TB)                           8.0L    26.0kg
-    * 0AM1167 (CAJ)                      8.0L     0.5kg
-    * 0RF0079 (CAJ)                      7.9L     8.6kg
-    * 0CF1135 (UN)                       2.0L     2.2kg
-    * 0VE3263 (UN)                       2.0L     2.0kg
-    * 0LM0105 (UN)                       1.0L     6.0kg
-    * 0LM0100 (UN)                       1.0L     5.0kg
-    * 0CF1137 (UN)                       1.0L     1.1kg
-    * 0LI2672 (UN)                       1.0L     1.0kg
-    * 1PLV0003 (UN)                      1.0L     0.5kg
-
-SU1 - BAHIA SUR-1 (frente, lado sur)
-  Capacidad: 3600L
-  Actual: 632L
-  Acceso: trasero/lateral_sur
-    * 3ENV1281 (CAJ)                   180.0L    60.0kg
-    * 3ENV0029 (CAJ)                    90.0L    30.0kg
-    * ED15LN (CAJ)                      60.0L   143.4kg
-    * 0LT0009 (CAJ)                     60.0L   113.8kg
-    * 0CF0128 (CAJ)                     30.0L    10.0kg
-    * 0CF0418 (CAJ)                     30.0L    10.0kg
-    * 0AM1610 (CAJ)                     30.0L    10.0kg
-    * 0AM0553 (UN)                      28.0L     4.0kg
-    * VE13SP (CAJ)                      23.1L    25.4kg
-    * 0VE0463 (CAJ)                     20.7L    15.0kg
-    * 0LT0078 (UN)                      18.0L    19.4kg
-    * 0RF0020 (CAJ)                     15.8L    17.2kg
-    * 0LT0234 (CAJ)                     12.0L    12.8kg
-    * 0ZU0032 (CAJ)                      9.6L    18.0kg
-    * 0ZU0271 (CAJ)                      9.6L    16.8kg
-    * 0LT0412 (CAJ)                      6.6L     7.2kg
-    * 0RF0293 (CAJ)                      4.8L    15.0kg
-    * 0LI2698 (UN)                       4.2L     4.2kg
-
-SU2 - BAHIA SUR-2 (atrás, lado sur)
-  Capacidad: 3600L
-  Actual: 652L
-  Acceso: trasero/lateral_sur
-    * 0LT0034 (CAJ)                    117.0L   117.0kg
-    * NTL13LT6 (CAJ)                    95.0L   103.5kg
-    * 3ENV0236 (CAJ)                    90.0L    30.0kg
+N1 - BAHIA N-1 (palet 1 de 3, lado norte)
+  Capacidad: 2400L
+  Actual:    636L
+  Acceso:    trasero/lateral_norte
+    * ED13 (CAJ)                       435.6L   935.0kg
     * 0RF1698 (CAJ)                     39.6L    43.0kg
-    * 0AM1634 (CAJ)                     37.5L     0.8kg
-    * 0LM0504 (UN)                      34.0L    17.0kg
-    * 0CF0415 (CAJ)                     30.0L    10.0kg
+    * 0CF0420 (CAJ)                     30.0L    10.0kg
     * 0CF0419 (CAJ)                     30.0L    10.0kg
-    * 0ZU0024 (CAJ)                     28.8L    50.4kg
-    * 0ZU0021 (CAJ)                     28.8L    50.4kg
-    * 0AG0007 (CAJ)                     18.0L    19.0kg
-    * 0RF0019 (CAJ)                     15.8L    17.2kg
-    * 0ZU0020 (CAJ)                     14.4L    25.2kg
+    * 0AM0553 (UN)                      28.0L     4.0kg
+    * 0AG0183 (CAJ)                     21.6L    42.3kg
     * 0LT0030 (CAJ)                     12.0L    13.0kg
     * 0RF0124 (CAJ)                     12.0L    12.0kg
-    * 0CF0410 (EST)                     10.0L     5.0kg
+    * 0ZU0032 (CAJ)                      9.6L    18.0kg
     * NTF13L6F (CAJ)                     7.9L     8.6kg
-    * 0RF0021 (CAJ)                      7.9L     8.6kg
+    * 0RF0293 (CAJ)                      4.8L    15.0kg
+    * 0CF0080 (UN)                       3.0L     3.0kg
+    * 0LI2672 (UN)                       1.0L     1.0kg
+    * 0LI0974 (BOT)                      0.7L     1.0kg
+
+N2 - BAHIA N-2 (palet 2 de 3, lado norte)
+  Capacidad: 2400L
+  Actual:    636L
+  Acceso:    trasero/lateral_norte
+    * BRL30V (BRL)                     350.0L   210.0kg
+    * 0LT0009 (CAJ)                     60.0L   113.8kg
+    * XI13 (CAJ)                        47.5L   102.0kg
+    * 0LM0661 (CAJ)                     30.0L    10.0kg
+    * 0CF0418 (CAJ)                     30.0L    10.0kg
+    * 0ZU0021 (CAJ)                     28.8L    50.4kg
+    * UE902 (UN)                        21.7L     3.1kg
+    * 0RF0019 (CAJ)                     15.8L    17.2kg
+    * 0ZU0020 (CAJ)                     14.4L    25.2kg
+    * FD15 (CAJ)                        12.0L    28.1kg
+    * TB8 (TB)                           8.0L    26.0kg
     * 0RF0056 (CAJ)                      7.9L     8.6kg
     * 0RF0337 (CAJ)                      6.5L     9.0kg
-    * 0CF0080 (UN)                       3.0L     3.0kg
-    * 0LM0334 (UN)                       2.3L     1.5kg
+    * 0VE3263 (UN)                       2.0L     2.0kg
+    * 1PLV0003 (UN)                      1.0L     0.5kg
+    * 0LI0270 (BOT)                      0.7L     1.0kg
+
+N3 - BAHIA N-3 (palet 3 de 3, lado norte)
+  Capacidad: 2400L
+  Actual:    636L
+  Acceso:    trasero/lateral_norte
+    * VE32SP (CAJ)                     252.0L   273.8kg
+    * BRL20V (BRL)                     100.0L    60.0kg
+    * ED15LN (CAJ)                      60.0L   143.4kg
+    * 0RF1697 (CAJ)                     39.6L    43.0kg
+    * 0AM1290 (CAJ)                     30.0L    32.0kg
+    * 0CF0411 (CAJ)                     30.0L    10.0kg
+    * 0ZU0024 (CAJ)                     28.8L    50.4kg
+    * VE13SP (CAJ)                      23.1L    25.4kg
+    * 0VE0463 (CAJ)                     20.7L    15.0kg
+    * 0LT0032 (CAJ)                     12.0L    15.6kg
+    * 0LT0090 (CAJ)                     12.0L    13.0kg
+    * 0CF0410 (EST)                     10.0L     5.0kg
+    * 0RF0022 (CAJ)                      7.9L     8.6kg
+    * 0LT0412 (CAJ)                      6.6L     7.2kg
+    * 0CF1135 (UN)                       2.0L     2.2kg
+    * 0CF1137 (UN)                       1.0L     1.1kg
+    * 0LI0068 (BOT)                      0.7L     1.0kg
+
+S1 - BAHIA S-1 (palet 1 de 3, lado sur)
+  Capacidad: 2400L
+  Actual:    636L
+  Acceso:    trasero/lateral_sur
+    * VE12SP (CAJ)                     204.0L   219.3kg
+    * 0RF0287 (CAJ)                    101.0L    25.6kg
+    * 3ENV0236 (CAJ)                    90.0L    30.0kg
+    * VO13 (CAJ)                        47.5L   102.0kg
+    * 0AM1634 (CAJ)                     37.5L     0.8kg
+    * 0CF0412 (CAJ)                     30.0L    10.0kg
+    * 0AM1610 (CAJ)                     30.0L    10.0kg
+    * FDL13 (CAJ)                       23.8L    51.0kg
+    * TU20 (BRL)                        20.0L    27.4kg
+    * FDT13 (CAJ)                       15.8L    34.0kg
+    * 0VE0465 (CAJ)                     10.3L     4.5kg
+    * 0AM1167 (CAJ)                      8.0L     0.5kg
+    * 0RF0021 (CAJ)                      7.9L     8.6kg
+    * 0AM1281 (UN)                       6.7L     5.0kg
     * 0LI2687 (UN)                       2.0L     2.0kg
+    * 0LM0100 (UN)                       1.0L     5.0kg
+    * 0LI0963 (BOT)                      0.7L     1.0kg
+
+S2 - BAHIA S-2 (palet 2 de 3, lado sur)
+  Capacidad: 2400L
+  Actual:    636L
+  Acceso:    trasero/lateral_sur
+    * 3ENV1281 (CAJ)                   180.0L    60.0kg
+    * 0LT0034 (CAJ)                    117.0L   117.0kg
+    * NTL13LT6 (CAJ)                    95.0L   103.5kg
+    * 0LT0235 (CAJ)                     54.0L    58.5kg
+    * 0LM0504 (UN)                      34.0L    17.0kg
+    * 0CF0415 (CAJ)                     30.0L    10.0kg
+    * 0CF0421 (CAJ)                     30.0L    10.0kg
+    * 0RF0169 (CAJ)                     24.0L    26.2kg
+    * 0AG0007 (CAJ)                     18.0L    19.0kg
+    * 0RF0020 (CAJ)                     15.8L    17.2kg
+    * 0AG0004 (CAJ)                     12.0L    13.0kg
+    * 0ZU0018 (CAJ)                      9.6L    16.8kg
+    * FD13 (CAJ)                         7.9L    17.0kg
+    * 0LI2698 (UN)                       4.2L     4.2kg
+    * 0LI0149 (BOT)                      2.1L     3.0kg
     * 0AM4556 (UN)                       1.0L    10.0kg
+    * 0LM0105 (UN)                       1.0L     6.0kg
+    * 0LI0063 (BOT)                      0.7L     1.0kg
+
+S3 - BAHIA S-3 (palet 3 de 3, lado sur)
+  Capacidad: 2400L
+  Actual:    636L
+  Acceso:    trasero/lateral_sur
+    * ED30 (BRL)                       150.0L   213.9kg
+    * 3ENV0021 (CAJ)                   150.0L    50.0kg
+    * 3ENV0029 (CAJ)                    90.0L    30.0kg
+    * 0AM1291 (CAJ)                     60.0L    20.0kg
+    * TU30 (BRL)                        30.0L    42.8kg
+    * 0CF0128 (CAJ)                     30.0L    10.0kg
+    * 0CF0124 (CAJ)                     30.0L    10.0kg
+    * 0LT0033 (CAJ)                     27.0L    27.0kg
+    * 0LT0078 (UN)                      18.0L    19.4kg
+    * 0RF0296 (CAJ)                     12.0L    14.0kg
+    * 0LT0234 (CAJ)                     12.0L    12.8kg
+    * 0ZU0271 (CAJ)                      9.6L    16.8kg
+    * 0RF0079 (CAJ)                      7.9L     8.6kg
+    * 0ZU0026 (CAJ)                      4.8L     8.4kg
+    * 0LM0334 (UN)                       2.3L     1.5kg
+    * 0LI0204 (BOT)                      1.0L     1.0kg
     * 0LM0114 (UN)                       1.0L     6.0kg
+    * 0LI0113 (BOT)                      0.7L     1.0kg
 
 TOLDO LATERAL IZQUIERDO (Retornables)
-  Capacidad: 1500L
-    * ED30 (BRL)                       150.0L
-    * TU30 (BRL)                        30.0L
-    * TU20 (BRL)                        20.0L
-    * 0LI0113 (BOT)                      0.7L
-    * 0LI0270 (BOT)                      0.7L
-    * 0LI0068 (BOT)                      0.7L
-    * 0LI0963 (BOT)                      0.7L
+  Capacidad: 2400L
     * CJ13 (CAJ)                      2190.0L
-    * 0LT0032 (CAJ)                     12.0L
-    * FDL13 (CAJ)                       23.8L
-    * FDT13 (CAJ)                       15.8L
-    * FD13 (CAJ)                         7.9L
-    * TB8V (TB)                          5.0L
 
 TOLDO LATERAL DERECHO (Retornables)
-  Capacidad: 1500L
-    * BRL30V (BRL)                     350.0L
-    * BRL20V (BRL)                     100.0L
-    * 0LI0204 (BOT)                      1.0L
-    * 0LI0974 (BOT)                      0.7L
-    * 0LI0063 (BOT)                      0.7L
-    * 0LI0149 (BOT)                      2.1L
-    * ED13 (CAJ)                       435.6L
-    * VO13 (CAJ)                        47.5L
+  Capacidad: 2400L
     * CJ15 (CAJ)                       360.0L
-    * XI13 (CAJ)                        47.5L
-    * 0AG0183 (CAJ)                     21.6L
-    * FD15 (CAJ)                        12.0L
+    * TB8V (TB)                          5.0L
 
 ================================================================================</div>
     </div>
@@ -230,41 +233,61 @@ TOLDO LATERAL DERECHO (Retornables)
         <div class="zone-grid">
             <div class="zone-card">
                 <div class="zone-head">
-                    <div class="zone-name">BAHIA NORTE-1 (frente, lado norte)</div>
-                    <div class="zone-tag">bay_no1</div>
+                    <div class="zone-name">BAHIA N-1 (palet 1 de 3, lado norte)</div>
+                    <div class="zone-tag">bay_n1</div>
                 </div>
-                <div class="bar"><div class="bar-fill" style="width:17.4%"></div></div>
-                <div class="zone-meta">627 / 3600 L · 17.4%</div>
+                <div class="bar"><div class="bar-fill" style="width:26.5%"></div></div>
+                <div class="zone-meta">636 / 2400 L · 26.5%</div>
                 <div class="zone-meta muted">trasero/lateral_norte</div>
             </div>
             
             <div class="zone-card">
                 <div class="zone-head">
-                    <div class="zone-name">BAHIA NORTE-2 (atrás, lado norte)</div>
-                    <div class="zone-tag">bay_no2</div>
+                    <div class="zone-name">BAHIA N-2 (palet 2 de 3, lado norte)</div>
+                    <div class="zone-tag">bay_n2</div>
                 </div>
-                <div class="bar"><div class="bar-fill" style="width:17.4%"></div></div>
-                <div class="zone-meta">625 / 3600 L · 17.4%</div>
+                <div class="bar"><div class="bar-fill" style="width:26.5%"></div></div>
+                <div class="zone-meta">636 / 2400 L · 26.5%</div>
                 <div class="zone-meta muted">trasero/lateral_norte</div>
             </div>
             
             <div class="zone-card">
                 <div class="zone-head">
-                    <div class="zone-name">BAHIA SUR-1 (frente, lado sur)</div>
-                    <div class="zone-tag">bay_su1</div>
+                    <div class="zone-name">BAHIA N-3 (palet 3 de 3, lado norte)</div>
+                    <div class="zone-tag">bay_n3</div>
                 </div>
-                <div class="bar"><div class="bar-fill" style="width:17.6%"></div></div>
-                <div class="zone-meta">632 / 3600 L · 17.6%</div>
+                <div class="bar"><div class="bar-fill" style="width:26.5%"></div></div>
+                <div class="zone-meta">636 / 2400 L · 26.5%</div>
+                <div class="zone-meta muted">trasero/lateral_norte</div>
+            </div>
+            
+            <div class="zone-card">
+                <div class="zone-head">
+                    <div class="zone-name">BAHIA S-1 (palet 1 de 3, lado sur)</div>
+                    <div class="zone-tag">bay_s1</div>
+                </div>
+                <div class="bar"><div class="bar-fill" style="width:26.5%"></div></div>
+                <div class="zone-meta">636 / 2400 L · 26.5%</div>
                 <div class="zone-meta muted">trasero/lateral_sur</div>
             </div>
             
             <div class="zone-card">
                 <div class="zone-head">
-                    <div class="zone-name">BAHIA SUR-2 (atrás, lado sur)</div>
-                    <div class="zone-tag">bay_su2</div>
+                    <div class="zone-name">BAHIA S-2 (palet 2 de 3, lado sur)</div>
+                    <div class="zone-tag">bay_s2</div>
                 </div>
-                <div class="bar"><div class="bar-fill" style="width:18.1%"></div></div>
-                <div class="zone-meta">652 / 3600 L · 18.1%</div>
+                <div class="bar"><div class="bar-fill" style="width:26.5%"></div></div>
+                <div class="zone-meta">636 / 2400 L · 26.5%</div>
+                <div class="zone-meta muted">trasero/lateral_sur</div>
+            </div>
+            
+            <div class="zone-card">
+                <div class="zone-head">
+                    <div class="zone-name">BAHIA S-3 (palet 3 de 3, lado sur)</div>
+                    <div class="zone-tag">bay_s3</div>
+                </div>
+                <div class="bar"><div class="bar-fill" style="width:26.5%"></div></div>
+                <div class="zone-meta">636 / 2400 L · 26.5%</div>
                 <div class="zone-meta muted">trasero/lateral_sur</div>
             </div>
             
@@ -273,8 +296,8 @@ TOLDO LATERAL DERECHO (Retornables)
                     <div class="zone-name">TOLDO LATERAL IZQUIERDO (retornables)</div>
                     <div class="zone-tag">toldo_izq</div>
                 </div>
-                <div class="bar"><div class="bar-fill" style="width:100.0%"></div></div>
-                <div class="zone-meta">2457 / 1500 L · 163.8%</div>
+                <div class="bar"><div class="bar-fill" style="width:91.2%"></div></div>
+                <div class="zone-meta">2190 / 2400 L · 91.2%</div>
                 <div class="zone-meta muted">lateral_deslizable</div>
             </div>
             
@@ -283,8 +306,8 @@ TOLDO LATERAL DERECHO (Retornables)
                     <div class="zone-name">TOLDO LATERAL DERECHO (retornables)</div>
                     <div class="zone-tag">toldo_der</div>
                 </div>
-                <div class="bar"><div class="bar-fill" style="width:91.9%"></div></div>
-                <div class="zone-meta">1379 / 1500 L · 91.9%</div>
+                <div class="bar"><div class="bar-fill" style="width:15.2%"></div></div>
+                <div class="zone-meta">365 / 2400 L · 15.2%</div>
                 <div class="zone-meta muted">lateral_deslizable</div>
             </div>
             </div>
@@ -292,7 +315,7 @@ TOLDO LATERAL DERECHO (Retornables)
 
     <div class="card">
         <h2>Notas de seguridad</h2>
-        <ul><li>✓ Distribucion equilibrada entre bahías</li><li>✓ Retornables separados en toldos laterales (3836L)</li><li>  - Toldo Izquierdo: 2457L (deslizable)</li><li>  - Toldo Derecho: 1379L (deslizable)</li><li></li><li>INSTRUCCIONES DE CARGA:</li><li>1. Usar acceso trasero (rampa principal) para bahías</li><li>2. Distribuir peso equilibradamente entre bahías N-S</li><li>3. Retornables siempre en toldos laterales (acceso fácil)</li><li>4. Asegurar cargas con flejes metalicos</li><li>5. Respetar altura maxima techo (2.1m)</li><li>6. Revisar presion de neumaticos antes de salir</li></ul>
+        <ul><li>✓ Distribucion equilibrada entre bahías</li><li>✓ Retornables en toldos laterales (2555L de 4800L disponibles)</li><li>  - Toldo Izquierdo: 2190L / 2400L</li><li>  - Toldo Derecho:   365L / 2400L</li><li></li><li>INSTRUCCIONES DE CARGA:</li><li>1. Usar acceso trasero (rampa principal) para bahías</li><li>2. Distribuir peso equilibradamente entre bahías N-S</li><li>3. Retornables siempre en toldos laterales cuando quepan (acceso fácil)</li><li>4. Asegurar cargas con flejes metalicos</li><li>5. Respetar altura maxima techo (2.1m)</li><li>6. Revisar presion de neumaticos antes de salir</li></ul>
     </div>
 
     <div class="card">
@@ -301,73 +324,73 @@ TOLDO LATERAL DERECHO (Retornables)
             <div class="pick-card">
                 <div class="pick-title">FORNO DI CAFFE VIVALDI</div>
                 <div class="pick-sub">Parada 25 · GRANOLLERS</div>
-                <div class="pick-list">CAJ → bay_no2/bay_su2 (5 uds)</div>
+                <div class="pick-list">CAJ → bay_n2/bay_n3/bay_s2/bay_s3 (5 uds)</div>
             </div>
             
             <div class="pick-card">
                 <div class="pick-title">QUATREPAMS</div>
                 <div class="pick-sub">Parada 24 · GRANOLLERS</div>
-                <div class="pick-list">CAJ → bay_no2/bay_su2 (5 uds)<br>UN → bay_no2/bay_su2 (1 uds)</div>
+                <div class="pick-list">CAJ → bay_n2/bay_n3/bay_s2/bay_s3 (5 uds)<br>UN → bay_n2/bay_n3/bay_s2/bay_s3 (1 uds)</div>
             </div>
             
             <div class="pick-card">
                 <div class="pick-title">QUATREPAMS</div>
                 <div class="pick-sub">Parada 23 · GRANOLLERS</div>
-                <div class="pick-list">CAJ → bay_no2/bay_su2 (3 uds)</div>
-            </div>
-            
-            <div class="pick-card">
-                <div class="pick-title">SALA GRANOLLERS (TORRES) – CIRSA</div>
-                <div class="pick-sub">Parada 22 · GRANOLLERS</div>
-                <div class="pick-list">CAJ → bay_no2/bay_su2 (2 uds)</div>
-            </div>
-            
-            <div class="pick-card">
-                <div class="pick-title">FORNO DI CAFFE VIVALDI</div>
-                <div class="pick-sub">Parada 21 · GRANOLLERS</div>
-                <div class="pick-list">CAJ → bay_no2/bay_su2 (2 uds)</div>
-            </div>
-            
-            <div class="pick-card">
-                <div class="pick-title">FORNO DI CAFFE VIVALDI</div>
-                <div class="pick-sub">Parada 20 · GRANOLLERS</div>
-                <div class="pick-list">CAJ → bay_no2/bay_su2 (10 uds)</div>
+                <div class="pick-list">CAJ → bay_n2/bay_n3/bay_s2/bay_s3 (3 uds)</div>
             </div>
             
             <div class="pick-card">
                 <div class="pick-title">BAR SAN ANTONIO</div>
+                <div class="pick-sub">Parada 22 · GRANOLLERS</div>
+                <div class="pick-list">CAJ → bay_n2/bay_n3/bay_s2/bay_s3 (12 uds)</div>
+            </div>
+            
+            <div class="pick-card">
+                <div class="pick-title">SALA GRANOLLERS (TORRES) – CIRSA</div>
+                <div class="pick-sub">Parada 21 · GRANOLLERS</div>
+                <div class="pick-list">CAJ → bay_n2/bay_n3/bay_s2/bay_s3 (2 uds)</div>
+            </div>
+            
+            <div class="pick-card">
+                <div class="pick-title">LAPONIA CAFE</div>
+                <div class="pick-sub">Parada 20 · GRANOLLERS</div>
+                <div class="pick-list">CAJ → bay_n2/bay_n3/bay_s2/bay_s3 (3 uds)</div>
+            </div>
+            
+            <div class="pick-card">
+                <div class="pick-title">FORNO DI CAFFE VIVALDI</div>
                 <div class="pick-sub">Parada 19 · GRANOLLERS</div>
-                <div class="pick-list">CAJ → bay_no2/bay_su2 (12 uds)</div>
+                <div class="pick-list">CAJ → bay_n2/bay_n3/bay_s2/bay_s3 (10 uds)</div>
             </div>
             
             <div class="pick-card">
                 <div class="pick-title">FLECA BRETCHA (HOSPITAL)</div>
                 <div class="pick-sub">Parada 18 · GRANOLLERS</div>
-                <div class="pick-list">CAJ → bay_no2/bay_su2 (1 uds)</div>
+                <div class="pick-list">CAJ → bay_n2/bay_n3/bay_s2/bay_s3 (1 uds)</div>
             </div>
             
             <div class="pick-card">
-                <div class="pick-title">LAPONIA CAFE</div>
+                <div class="pick-title">FORNO DI CAFFE VIVALDI</div>
                 <div class="pick-sub">Parada 17 · GRANOLLERS</div>
-                <div class="pick-list">CAJ → bay_no2/bay_su2 (3 uds)</div>
+                <div class="pick-list">CAJ → bay_n2/bay_n3/bay_s2/bay_s3 (2 uds)</div>
             </div>
             
             <div class="pick-card">
                 <div class="pick-title">RESTAURANTE XAP</div>
                 <div class="pick-sub">Parada 16 · GRANOLLERS</div>
-                <div class="pick-list">CAJ → bay_no2/bay_su2 (2 uds)</div>
+                <div class="pick-list">CAJ → bay_n2/bay_n3/bay_s2/bay_s3 (2 uds)<br>UN → bay_n2/bay_n3/bay_s2/bay_s3 (1 uds)</div>
             </div>
             
             <div class="pick-card">
                 <div class="pick-title">RESTAURANTE XAP</div>
                 <div class="pick-sub">Parada 15 · GRANOLLERS</div>
-                <div class="pick-list">CAJ → bay_no2/bay_su2 (2 uds)<br>UN → bay_no2/bay_su2 (1 uds)</div>
+                <div class="pick-list">CAJ → bay_n2/bay_n3/bay_s2/bay_s3 (2 uds)</div>
             </div>
             
             <div class="pick-card">
                 <div class="pick-title">BAR?JOAN?PRIM</div>
                 <div class="pick-sub">Parada 14 · GRANOLLERS</div>
-                <div class="pick-list">CAJ → bay_no2/bay_su2 (16 uds)<br>UN → bay_no2/bay_su2 (1 uds)</div>
+                <div class="pick-list">CAJ → bay_n2/bay_n3/bay_s2/bay_s3 (16 uds)<br>UN → bay_n2/bay_n3/bay_s2/bay_s3 (1 uds)</div>
             </div>
             </div>
     </div>
