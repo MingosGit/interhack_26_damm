@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any
@@ -368,6 +369,9 @@ def solve_fleet(
     use_time_windows: bool = False,
     depot_open_s: int = config.JORNADA_INICIO_S,
     depot_close_s: int = config.JORNADA_FIN_S,
+    capacities_l: list[float] | None = None,
+    capacities_kg: list[float] | None = None,
+    truck_codes: list[str] | None = None,
 ) -> FleetSolution:
     """Resuelve un CVRP (Capacitated Vehicle Routing Problem) multi-camión.
 
@@ -386,11 +390,29 @@ def solve_fleet(
     if n_stops == 0:
         return FleetSolution([], [], 0, 0, "OPTIMAL", 0, {"trivial": "empty"})
 
+    # Resolver capacidades por vehículo (heterogéneas si se pasan listas)
+    if capacities_l is not None:
+        if len(capacities_l) != n_vehicles:
+            raise DammSmartTruckError(
+                f"capacities_l tiene {len(capacities_l)} elementos, esperaba {n_vehicles}"
+            )
+        cap_vol_per_vehicle = [int(round(c)) for c in capacities_l]
+    else:
+        cap_vol_per_vehicle = [int(round(truck_capacity_l))] * n_vehicles
+    if capacities_kg is not None:
+        if len(capacities_kg) != n_vehicles:
+            raise DammSmartTruckError(
+                f"capacities_kg tiene {len(capacities_kg)} elementos, esperaba {n_vehicles}"
+            )
+        cap_kg_per_vehicle = [int(round(c)) for c in capacities_kg]
+    else:
+        cap_kg_per_vehicle = [int(round(truck_capacity_kg))] * n_vehicles
+
     # Sanity check: capacidad total vs suma de demandas
     total_vol = sum(s.volumen_l for s in stops)
     total_peso = sum(s.peso_kg for s in stops)
-    fleet_cap_vol = n_vehicles * truck_capacity_l
-    fleet_cap_kg = n_vehicles * truck_capacity_kg
+    fleet_cap_vol = sum(cap_vol_per_vehicle)
+    fleet_cap_kg = sum(cap_kg_per_vehicle)
     if total_vol > fleet_cap_vol or total_peso > fleet_cap_kg:
         logger.warning(
             "Capacidad de flota excedida: vol={:.1f}L vs {:.1f}L | peso={:.1f}kg vs {:.1f}kg",
@@ -488,21 +510,20 @@ def solve_fleet(
             transit_cb_idx, 0, int(max_route_time_s), True, "Time",
         )
 
-    # ---- Capacidad de volumen ----
+    # ---- Capacidad de volumen (por vehículo, soporta heterogénea) ----
     def demand_vol_cb(from_idx: int) -> int:
         return demand_vol[manager.IndexToNode(from_idx)]
     vol_cb_idx = routing.RegisterUnaryTransitCallback(demand_vol_cb)
-    # Capacidades por vehículo (todos iguales para CVRP estándar)
     routing.AddDimensionWithVehicleCapacity(
-        vol_cb_idx, 0, [cap_vol] * n_vehicles, True, "Volumen"
+        vol_cb_idx, 0, cap_vol_per_vehicle, True, "Volumen"
     )
 
-    # ---- Capacidad de peso ----
+    # ---- Capacidad de peso (por vehículo) ----
     def demand_kg_cb(from_idx: int) -> int:
         return demand_kg[manager.IndexToNode(from_idx)]
     kg_cb_idx = routing.RegisterUnaryTransitCallback(demand_kg_cb)
     routing.AddDimensionWithVehicleCapacity(
-        kg_cb_idx, 0, [cap_kg] * n_vehicles, True, "Peso"
+        kg_cb_idx, 0, cap_kg_per_vehicle, True, "Peso"
     )
 
     # ---- Parámetros de búsqueda ----
@@ -570,6 +591,9 @@ def solve_fleet(
                 "n_stops": len(route_stops),
                 "arrivals_s": route_arrivals,
                 "start_time_s": int(start_time),
+                "truck_code": (truck_codes[v] if truck_codes and v < len(truck_codes) else None),
+                "capacity_l": cap_vol_per_vehicle[v],
+                "capacity_kg": cap_kg_per_vehicle[v],
             })
             total_time_all += route_time
             total_dist_all += route_dist
@@ -1230,6 +1254,345 @@ def run_for_fleet(
         "snapshot_payload": fleet_snapshot_payload,
         "loading_html_path": default_html,
         "explanations": explanations,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Flota MIXTA: combina varios tipos de camión (heterogénea)
+# ---------------------------------------------------------------------------
+
+# Inventario real disponible (Estrategia.md): 11×6P, 4×8P, 1×FUR.
+DEFAULT_FLEET_INVENTORY: dict[str, int] = {"6P": 11, "8P": 4, "FUR": 1}
+
+
+def _generate_fleet_compositions(
+    total_vol_l: float,
+    total_peso_kg: float,
+    inventory: dict[str, int],
+    max_candidates: int = 8,
+) -> list[dict[str, int]]:
+    """Genera composiciones plausibles de flota que cubren la demanda total
+    sin exceder el inventario disponible. Cada composición es un dict
+    `{truck_code: n_vehicles}`."""
+    candidates: list[dict[str, int]] = []
+    truck_caps_l = {code: config.TRUCKS[code]["vol_m3"] * 1000 for code in config.TRUCKS}
+    truck_caps_kg = {code: config.TRUCKS[code]["peso_max_kg"] for code in config.TRUCKS}
+
+    def _fits(comp: dict[str, int]) -> bool:
+        cap_l = sum(comp[c] * truck_caps_l[c] for c in comp)
+        cap_kg = sum(comp[c] * truck_caps_kg[c] for c in comp)
+        return cap_l >= total_vol_l and cap_kg >= total_peso_kg
+
+    def _within_inventory(comp: dict[str, int]) -> bool:
+        return all(comp.get(c, 0) <= inventory.get(c, 0) for c in comp)
+
+    # Candidato 1 — un solo camión (el más pequeño que quepa)
+    for code in ["FUR", "6P", "8P"]:
+        if inventory.get(code, 0) >= 1 and _fits({code: 1}):
+            candidates.append({code: 1})
+            break
+
+    # Candidato 2 — todos del mismo tipo, mínimo necesario
+    for code in ["6P", "8P"]:
+        n_needed = math.ceil(total_vol_l / truck_caps_l[code])
+        if n_needed <= inventory.get(code, 0) and _fits({code: n_needed}):
+            candidates.append({code: n_needed})
+
+    # Candidato 3 — empezar por los grandes (8P), completar con 6P, FUR de remate
+    composition: dict[str, int] = {}
+    remaining = total_vol_l
+    for code in ["8P", "6P", "FUR"]:
+        if remaining <= 0:
+            break
+        n_max = inventory.get(code, 0)
+        n_use = min(n_max, math.ceil(remaining / truck_caps_l[code]))
+        if n_use > 0:
+            composition[code] = n_use
+            remaining -= n_use * truck_caps_l[code]
+    if composition and _fits(composition):
+        candidates.append(composition)
+
+    # Candidato 4 — mix 1×8P + N×6P
+    if inventory.get("8P", 0) >= 1:
+        rem = max(0, total_vol_l - truck_caps_l["8P"])
+        n_6p = math.ceil(rem / truck_caps_l["6P"]) if rem > 0 else 0
+        if n_6p <= inventory.get("6P", 0):
+            comp = {"8P": 1}
+            if n_6p > 0:
+                comp["6P"] = n_6p
+            if _fits(comp):
+                candidates.append(comp)
+
+    # Candidato 5 — mix con FUR para "rematar"
+    if inventory.get("FUR", 0) >= 1 and total_vol_l > truck_caps_l["FUR"]:
+        rem = max(0, total_vol_l - truck_caps_l["FUR"])
+        n_6p = math.ceil(rem / truck_caps_l["6P"])
+        if n_6p <= inventory.get("6P", 0):
+            comp = {"FUR": 1, "6P": n_6p}
+            if _fits(comp):
+                candidates.append(comp)
+
+    # Dedupe + filtrar por inventario
+    seen: set[frozenset] = set()
+    unique: list[dict[str, int]] = []
+    for c in candidates:
+        c_clean = {k: v for k, v in c.items() if v > 0}
+        key = frozenset(c_clean.items())
+        if key in seen or not _within_inventory(c_clean):
+            continue
+        seen.add(key)
+        unique.append(c_clean)
+
+    return unique[:max_candidates]
+
+
+def _composition_to_vehicle_lists(
+    composition: dict[str, int],
+) -> tuple[list[str], list[float], list[float]]:
+    """Expande una composición {truck_code: n} a listas paralelas
+    (truck_codes, capacities_l, capacities_kg). Vehículos grandes primero
+    para que OR-Tools les asigne preferentemente las paradas grandes."""
+    truck_codes: list[str] = []
+    caps_l: list[float] = []
+    caps_kg: list[float] = []
+    # Ordenar por capacidad DESC (prioriza grandes)
+    ordered = sorted(
+        composition.items(),
+        key=lambda kv: config.TRUCKS[kv[0]]["vol_m3"],
+        reverse=True,
+    )
+    for code, n in ordered:
+        for _ in range(n):
+            truck_codes.append(code)
+            caps_l.append(config.TRUCKS[code]["vol_m3"] * 1000)
+            caps_kg.append(config.TRUCKS[code]["peso_max_kg"])
+    return truck_codes, caps_l, caps_kg
+
+
+def _score_solution(sol: FleetSolution, total_demand_l: float) -> float:
+    """Score para comparar soluciones de flotas distintas. Menor = mejor.
+    - Distancia total en metros.
+    - +30 km penalización por cada vehículo usado (favorece menos camiones).
+    - +50 km extra si la utilización es < 40 % (camión muy desaprovechado).
+    """
+    if sol.status not in ("OPTIMAL", "FEASIBLE", "ROUTING_SUCCESS"):
+        return float("inf")
+    base = float(sol.total_distance_m)
+    n_used = max(1, sol.n_vehicles_used)
+    base += 30_000 * n_used
+    cap_used = total_demand_l / sum(
+        m.get("capacity_l", 0) for m in sol.route_metrics if m.get("n_stops", 0) > 0
+    ) if sol.route_metrics else 0
+    if cap_used < 0.4:
+        base += 50_000
+    return base
+
+
+def find_optimal_fleet_mix(
+    stops: list[Stop],
+    time_matrix_s: np.ndarray,
+    dist_matrix_m: np.ndarray,
+    *,
+    inventory: dict[str, int] | None = None,
+    time_limit_s: int = 8,
+    use_time_windows: bool = False,
+) -> tuple[FleetSolution, dict[str, int], list[dict]]:
+    """Encuentra la mejor composición de flota mixta para el conjunto de
+    paradas, respetando el inventario disponible.
+
+    Retorna (mejor_solucion, mejor_composicion, candidatos_evaluados).
+    """
+    inv = inventory or dict(DEFAULT_FLEET_INVENTORY)
+    total_vol = sum(s.volumen_l for s in stops)
+    total_peso = sum(s.peso_kg for s in stops)
+
+    candidates = _generate_fleet_compositions(total_vol, total_peso, inv)
+    if not candidates:
+        raise DammSmartTruckError(
+            f"Ninguna composición de flota cubre la demanda "
+            f"({total_vol:.0f}L, {total_peso:.0f}kg) con el inventario {inv}"
+        )
+
+    evaluations: list[dict] = []
+    best_sol: FleetSolution | None = None
+    best_comp: dict[str, int] | None = None
+    best_score = float("inf")
+
+    for comp in candidates:
+        truck_codes, caps_l, caps_kg = _composition_to_vehicle_lists(comp)
+        sol = solve_fleet(
+            stops, (config.DEPOT_LAT, config.DEPOT_LNG),
+            n_vehicles=len(truck_codes),
+            truck_capacity_l=max(caps_l), truck_capacity_kg=max(caps_kg),
+            time_matrix_s=time_matrix_s, dist_matrix_m=dist_matrix_m,
+            time_limit_s=time_limit_s,
+            use_time_windows=use_time_windows,
+            capacities_l=caps_l, capacities_kg=caps_kg, truck_codes=truck_codes,
+        )
+        score = _score_solution(sol, total_vol)
+        evaluations.append({
+            "composition": comp,
+            "n_vehicles_offered": len(truck_codes),
+            "n_vehicles_used": sol.n_vehicles_used,
+            "total_distance_km": sol.total_distance_m / 1000,
+            "total_time_h": sol.total_time_s / 3600,
+            "status": sol.status,
+            "score": score,
+            "fleet_capacity_l": sum(caps_l),
+            "utilization_pct": (total_vol / sum(caps_l) * 100) if sum(caps_l) else 0,
+        })
+        if score < best_score:
+            best_score = score
+            best_sol = sol
+            best_comp = comp
+
+    if best_sol is None or best_comp is None:
+        raise DammSmartTruckError("No se encontró ninguna solución factible para flota mixta")
+
+    return best_sol, best_comp, evaluations
+
+
+def run_for_mixed_fleet(
+    transporte_id: int,
+    inventory: dict[str, int] | None = None,
+    time_limit_s: int = 8,
+    use_time_windows: bool = False,
+    explain: bool = False,
+    explain_lang: str = "es",
+    loading_html: str | None = None,
+) -> dict:
+    """Como `run_for_fleet` pero decide automáticamente la mejor mezcla de
+    camiones (6P / 8P / FUR) respetando el inventario disponible.
+
+    Output dict tiene la misma forma que `run_for_fleet` + claves extra:
+    - `fleet_composition`: {truck_code: n}
+    - `fleet_evaluations`: lista de candidatos evaluados
+    """
+    inv = inventory or dict(DEFAULT_FLEET_INVENTORY)
+    canonical = pd.read_parquet(config.CANONICAL_PARQUET)
+    geo = pd.read_parquet(config.GEOCODING_PARQUET)
+
+    stops = build_stops_from_transporte(transporte_id, canonical, geo)
+    if not stops:
+        raise DammSmartTruckError(f"Transporte {transporte_id} sin paradas geocodificadas")
+
+    fecha = canonical[canonical["transporte"] == transporte_id]["fecha"].iloc[0]
+    if use_time_windows:
+        attach_time_windows(stops, fecha, canonical=canonical)
+
+    coords = [(config.DEPOT_LAT, config.DEPOT_LNG)] + [(s.lat, s.lng) for s in stops]
+    time_mat, dist_mat = distance_matrix.get_matrix(coords)
+
+    base_time, base_dist = baseline_metrics(stops, time_mat, dist_mat)
+
+    sol, composition, evaluations = find_optimal_fleet_mix(
+        stops, time_mat, dist_mat,
+        inventory=inv, time_limit_s=time_limit_s, use_time_windows=use_time_windows,
+    )
+
+    delta_t = sol.total_time_s - base_time
+    delta_d = sol.total_distance_m - base_dist
+    pct_t = 100 * delta_t / base_time if base_time else 0.0
+    pct_d = 100 * delta_d / base_dist if base_dist else 0.0
+
+    print(f"\n{'='*80}")
+    print(f"Transporte {transporte_id} | Flota MIXTA óptima")
+    print(f"Composición elegida: {composition}")
+    print(f"{len(stops)} paradas totales | Status: {sol.status}")
+    print(f"{'='*80}")
+    print("\nCandidatos evaluados:")
+    for e in evaluations:
+        marker = " ★" if e["composition"] == composition else "  "
+        print(f"{marker} {e['composition']} → {e['n_vehicles_used']}/{e['n_vehicles_offered']} usados, "
+              f"{e['total_distance_km']:.1f} km, util {e['utilization_pct']:.0f}%, score {e['score']:.0f}")
+
+    # Construir snapshot_payload (formato compatible con run_for_fleet)
+    cap_l_total = sum(config.TRUCKS[c]["vol_m3"] * 1000 * n for c, n in composition.items())
+    cap_kg_total = sum(config.TRUCKS[c]["peso_max_kg"] * n for c, n in composition.items())
+
+    fleet_snapshot_payload = {
+        "transporte": transporte_id,
+        "truck": "MIXED",
+        "mode": "fleet_mixed",
+        "status": sol.status,
+        "vehicles_requested": sum(composition.values()),
+        "vehicles_used": int(sol.n_vehicles_used),
+        "truck_capacity_l": cap_l_total,
+        "truck_capacity_kg": cap_kg_total,
+        "fleet_composition": composition,
+        "metrics": {
+            "baseline_time_s": base_time, "baseline_dist_m": base_dist,
+            "opt_time_s": sol.total_time_s, "opt_dist_m": sol.total_distance_m,
+            "delta_time_pct": round(pct_t, 3), "delta_dist_pct": round(pct_d, 3),
+            "entrega_total_l": round(sum(s.volumen_l for s in stops), 3),
+            "recogida_total_l": round(sum(s.volumen_retornable_l for s in stops), 3),
+        },
+        "routes": [],
+    }
+
+    for vehicle_idx, (route_stops, metrics) in enumerate(zip(sol.routes, sol.route_metrics), 1):
+        truck_code = metrics.get("truck_code") or "?"
+        fleet_snapshot_payload["routes"].append({
+            "vehicle_index": vehicle_idx,
+            "truck_code": truck_code,
+            "capacity_l": metrics.get("capacity_l", 0),
+            "capacity_kg": metrics.get("capacity_kg", 0),
+            "n_stops": int(metrics.get("n_stops", len(route_stops))),
+            "time_s": int(metrics.get("time_s", 0)),
+            "distance_m": int(metrics.get("distance_m", 0)),
+            "entrega_total_l": round(sum(s.volumen_l for s in route_stops), 3),
+            "recogida_total_l": round(sum(s.volumen_retornable_l for s in route_stops), 3),
+            "top_productos": _top_productos(route_stops, top_k=10),
+            "stops": [
+                {
+                    "order": idx, "cliente_id": int(s.cliente_id),
+                    "cliente_nombre": s.cliente_nombre, "poblacion": s.poblacion,
+                    "lat": float(s.lat), "lng": float(s.lng),
+                    "entrega_l": round(float(s.volumen_l), 3),
+                    "recogida_l": round(float(s.volumen_retornable_l), 3),
+                    "peso_kg": round(float(s.peso_kg), 3),
+                    "entrega_id": int(s.entrega_id) if s.entrega_id is not None else None,
+                    "materiales": _parse_materiales(s.materiales_json),
+                }
+                for idx, s in enumerate(route_stops, 1)
+            ],
+        })
+
+    explanations: dict[str, Any] = {}
+    if explain:
+        explanations = _print_explainability_fleet(sol, stops, explain_lang)
+        # Añadir descripción de la composición elegida
+        comp_human = ", ".join(f"{n}×{c}" for c, n in composition.items())
+        explanations["fleet_composition_reason"] = (
+            f"Composición elegida: {comp_human}. "
+            f"Capacidad total: {cap_l_total:.0f}L vs demanda {sum(s.volumen_l for s in stops):.0f}L "
+            f"({sum(s.volumen_l for s in stops) / cap_l_total * 100:.0f}% de utilización). "
+            f"Se evaluaron {len(evaluations)} composiciones; ésta minimiza km totales × nº vehículos."
+        )
+
+    total_entrega = sum(s.volumen_l for s in stops)
+    total_recogida = sum(s.volumen_retornable_l for s in stops)
+    total_peso = sum(s.peso_kg for s in stops)
+
+    return {
+        "transporte": transporte_id,
+        "n_stops": len(stops),
+        "n_vehicles_requested": sum(composition.values()),
+        "n_vehicles_used": sol.n_vehicles_used,
+        "baseline_time_s": base_time, "baseline_dist_m": base_dist,
+        "opt_time_s": sol.total_time_s, "opt_dist_m": sol.total_distance_m,
+        "delta_time_pct": pct_t, "delta_dist_pct": pct_d,
+        "status": sol.status,
+        "routes_count": len(sol.routes),
+        "entrega_total_l": total_entrega,
+        "recogida_total_l": total_recogida,
+        "peso_kg": total_peso,
+        "snapshot_path": None,
+        "snapshot_payload": fleet_snapshot_payload,
+        "loading_html_path": None,
+        "explanations": explanations,
+        "fleet_composition": composition,
+        "fleet_evaluations": evaluations,
     }
 
 

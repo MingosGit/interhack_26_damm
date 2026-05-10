@@ -22,10 +22,26 @@ from src import config
 from src.config import TRUCKS
 from src.etl import build_canonical
 from src.loading_visualization import visualize_loading_plan
-from src.vrp_solver import run_for_fleet, run_for_transporte
+from src.vrp_solver import run_for_fleet, run_for_transporte, run_for_mixed_fleet, DEFAULT_FLEET_INVENTORY
 from src.insights import analyze_route, get_top_materiales_by_frequency
 from src.warehouse import recommend_warehouse_layout, picking_path_for_route
 import os
+
+# Cargar GROQ_API_KEY (y otras vars) del .env para que la explicabilidad LLM
+# funcione. Streamlit no lee .env por defecto.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
+except ImportError:
+    # Fallback: lectura manual mínima si python-dotenv no está instalado
+    _env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    if os.path.exists(_env_path):
+        with open(_env_path) as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if _line and not _line.startswith("#") and "=" in _line:
+                    _k, _v = _line.split("=", 1)
+                    os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
 
 # Configuración de rutas para que no falle el "Path"
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1238,8 +1254,13 @@ truck_selected = st.sidebar.selectbox(
 
 mode = st.sidebar.radio(
     "🔄 Modo de Optimización",
-    options=["Un solo camión", "Flota múltiple"],
-    help="Single: optimiza una ruta. Fleet: distribuye entre múltiples vehículos",
+    options=["Un solo camión", "Flota múltiple", "Flota óptima (mezcla automática)"],
+    help=(
+        "Un solo camión: una ruta con el tipo elegido arriba.\n"
+        "Flota múltiple: N camiones del mismo tipo (manual).\n"
+        "Flota óptima: el sistema decide la MEJOR mezcla de 6P/8P/FUR respetando inventario "
+        "(11×6P, 4×8P, 1×FUR)."
+    ),
 )
 
 fleet_size = 1
@@ -1250,6 +1271,25 @@ if mode == "Flota múltiple":
         max_value=10,
         value=3,
         help="Máximo número de vehículos disponibles",
+    )
+
+# Inventario disponible para modo "Flota óptima"
+inv_6p = inv_8p = inv_fur = 0
+if mode == "Flota óptima (mezcla automática)":
+    st.sidebar.markdown("**📦 Inventario disponible** (editable)")
+    col_a, col_b, col_c = st.sidebar.columns(3)
+    with col_a:
+        inv_6p = st.number_input("6P", min_value=0, max_value=20,
+                                 value=DEFAULT_FLEET_INVENTORY["6P"])
+    with col_b:
+        inv_8p = st.number_input("8P", min_value=0, max_value=10,
+                                 value=DEFAULT_FLEET_INVENTORY["8P"])
+    with col_c:
+        inv_fur = st.number_input("FUR", min_value=0, max_value=5,
+                                  value=DEFAULT_FLEET_INVENTORY["FUR"])
+    st.sidebar.caption(
+        f"Capacidad total: {inv_6p*14400 + inv_8p*19200 + inv_fur*7200:,} L · "
+        f"{inv_6p*6500 + inv_8p*8500 + inv_fur*3500:,} kg"
     )
 
 enable_html = st.sidebar.checkbox("Exportar HTML (visualización interactiva)", value=True)
@@ -1275,7 +1315,7 @@ if st.sidebar.button("RESOLVER OPTIMIZACION", type="primary", use_container_widt
                     loading_html="auto" if enable_html else None,
                 )
                 status_placeholder.success(f"✅ Optimización completada para camión {truck_selected}")
-            else:
+            elif mode == "Flota múltiple":
                 status_placeholder.info(f"Optimizando transporte {transport_id} con flota de {fleet_size} camiones...")
                 result = run_for_fleet(
                     transporte_id=transport_int,
@@ -1287,6 +1327,23 @@ if st.sidebar.button("RESOLVER OPTIMIZACION", type="primary", use_container_widt
                 )
                 vehicles_used = result.get("n_vehicles_used", fleet_size)
                 status_placeholder.success(f"✅ Optimización completada: {vehicles_used} de {fleet_size} vehículos usados")
+            else:
+                # Flota óptima — mezcla automática 6P / 8P / FUR
+                status_placeholder.info(
+                    f"Buscando mezcla óptima para {transport_id} "
+                    f"(inventario: {inv_6p}×6P, {inv_8p}×8P, {inv_fur}×FUR)..."
+                )
+                result = run_for_mixed_fleet(
+                    transporte_id=transport_int,
+                    inventory={"6P": int(inv_6p), "8P": int(inv_8p), "FUR": int(inv_fur)},
+                    explain=True,
+                    explain_lang="es",
+                )
+                comp = result.get("fleet_composition", {})
+                comp_human = " + ".join(f"{n}×{c}" for c, n in comp.items()) or "—"
+                status_placeholder.success(
+                    f"✅ Mezcla óptima: {comp_human} ({result.get('n_vehicles_used', 0)} vehículos)"
+                )
 
             snapshot_payload = result.get("snapshot_payload", {}) or {}
             metrics = snapshot_payload.get("metrics", {}) or {}
@@ -1355,6 +1412,53 @@ if st.sidebar.button("RESOLVER OPTIMIZACION", type="primary", use_container_widt
                 )
                 st.table(summary_df)
 
+                # === Panel especial para flota mixta ===
+                fleet_comp = snapshot_payload.get("fleet_composition") or result.get("fleet_composition")
+                fleet_evals = result.get("fleet_evaluations") or []
+                if fleet_comp:
+                    st.divider()
+                    st.subheader("🧮 Mezcla óptima de flota seleccionada")
+                    comp_chips = " ".join(
+                        f"<span class='badge' style='background:#0f172a;font-size:0.85rem;padding:0.35rem 0.75rem;'>"
+                        f"{n}× {escape(c)} <span style='opacity:0.7;font-weight:normal;'>"
+                        f"({TRUCKS[c]['vol_m3']*1000:.0f} L · {TRUCKS[c]['peso_max_kg']} kg)</span>"
+                        "</span>"
+                        for c, n in fleet_comp.items()
+                    )
+                    cap_total_l = sum(TRUCKS[c]["vol_m3"] * 1000 * n for c, n in fleet_comp.items())
+                    cap_total_kg = sum(TRUCKS[c]["peso_max_kg"] * n for c, n in fleet_comp.items())
+                    st.markdown(
+                        f"<div style='margin-bottom:0.6rem;'>{comp_chips}</div>"
+                        f"<div style='color:#64748b;font-size:0.88rem;'>"
+                        f"Capacidad total: <b>{cap_total_l:,.0f} L</b> · <b>{cap_total_kg:,} kg</b>"
+                        "</div>",
+                        unsafe_allow_html=True,
+                    )
+
+                    if fleet_evals:
+                        st.markdown("**Candidatos evaluados** (★ = elegido)")
+                        st.dataframe(
+                            pd.DataFrame([
+                                {
+                                    "Composición": " + ".join(f"{n}×{c}" for c, n in (e["composition"] or {}).items()),
+                                    "Vehículos ofrecidos": e.get("n_vehicles_offered", 0),
+                                    "Usados": e.get("n_vehicles_used", 0),
+                                    "Distancia (km)": round(e.get("total_distance_km", 0), 1),
+                                    "Capacidad (L)": int(e.get("fleet_capacity_l", 0)),
+                                    "Utilización": f"{e.get('utilization_pct', 0):.0f} %",
+                                    "Score": int(e.get("score", 0)),
+                                    "★": "★" if e.get("composition") == fleet_comp else "",
+                                }
+                                for e in fleet_evals
+                            ]),
+                            use_container_width=True,
+                            hide_index=True,
+                        )
+                        st.caption(
+                            "Score = distancia total + 30 km/vehículo (penalización por flota grande) "
+                            "+ 50 km extra si utilización < 40 %. Menor = mejor."
+                        )
+
             with tab2:
                 st.markdown('<div class="section-title">Ruta optimizada completa</div>', unsafe_allow_html=True)
 
@@ -1404,12 +1508,20 @@ if st.sidebar.button("RESOLVER OPTIMIZACION", type="primary", use_container_widt
                 if not stops_data:
                     st.info("ℹ️ No hay datos de carga para visualizar")
                 elif is_fleet and len(routes_data) > 1:
-                    st.caption(
-                        f"Cada vehículo tiene su propio camión {truck_selected} y su propio plan de carga. "
-                        "Selecciona la pestaña del vehículo para verlo."
-                    )
+                    is_mixed = bool(snapshot_payload.get("fleet_composition"))
+                    if is_mixed:
+                        st.caption(
+                            "Flota mixta: cada vehículo puede ser de un tipo distinto. "
+                            "El plan de carga se calcula con la capacidad real de cada camión."
+                        )
+                    else:
+                        st.caption(
+                            f"Cada vehículo tiene su propio camión {truck_selected} y su propio plan de carga."
+                        )
                     sub_tabs = st.tabs([
-                        f"🚚 V{int(r.get('vehicle_index', i+1))} ({len(r.get('stops') or [])} pdas)"
+                        f"🚚 V{int(r.get('vehicle_index', i+1))} "
+                        f"[{r.get('truck_code') or truck_selected}] "
+                        f"({len(r.get('stops') or [])} pdas)"
                         for i, r in enumerate(routes_data)
                     ])
                     for i, (sub, r) in enumerate(zip(sub_tabs, routes_data)):
@@ -1420,23 +1532,28 @@ if st.sidebar.button("RESOLVER OPTIMIZACION", type="primary", use_container_widt
                                 continue
                             v_idx = int(r.get("vehicle_index", i + 1))
                             v_color = _vehicle_color(v_idx)
+                            v_truck = r.get("truck_code") or truck_selected
+                            v_cap_l = int(r.get("capacity_l") or (TRUCKS[v_truck]["vol_m3"] * 1000))
                             v_entrega = float(r.get("entrega_total_l", 0) or 0)
                             v_recogida = float(r.get("recogida_total_l", 0) or 0)
                             v_dist_km = float(r.get("distance_m", 0) or 0) / 1000
                             v_time_h = float(r.get("time_s", 0) or 0) / 3600
+                            v_util_pct = (v_entrega + v_recogida) / v_cap_l * 100 if v_cap_l else 0
                             st.markdown(
-                                f"<div style='display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;'>"
+                                f"<div style='display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;flex-wrap:wrap;'>"
                                 f"<span style='width:14px;height:14px;border-radius:50%;background:{v_color};"
                                 "border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.25);'></span>"
                                 f"<b style='font-size:0.95rem;color:#0f172a;'>Vehículo {v_idx}</b>"
+                                f"<span class='badge' style='background:#1e40af;'>{escape(v_truck)}</span>"
                                 f"<span style='color:#64748b;font-size:0.85rem;'>· {len(v_stops)} paradas · "
                                 f"{v_entrega:.0f} L entrega · {v_recogida:.0f} L recogida · "
-                                f"{v_dist_km:.1f} km · {v_time_h:.1f} h</span>"
+                                f"{v_dist_km:.1f} km · {v_time_h:.1f} h · "
+                                f"<b>{v_util_pct:.0f}%</b> ocupación</span>"
                                 "</div>",
                                 unsafe_allow_html=True,
                             )
-                            v_plan = visualize_loading_plan(v_stops, truck_capacity_l, truck_code=truck_selected)
-                            v_html = _build_loading_maps_html(v_plan, truck_selected, truck_capacity_l)
+                            v_plan = visualize_loading_plan(v_stops, v_cap_l, truck_code=v_truck)
+                            v_html = _build_loading_maps_html(v_plan, v_truck, v_cap_l)
                             components.html(v_html, height=720, scrolling=True)
                 else:
                     loading_plan = visualize_loading_plan(stops_data, truck_capacity_l, truck_code=truck_selected)
@@ -1703,22 +1820,70 @@ El packer del proyecto (`src/packer.py` + `src/loading_visualization.py`) implem
                 st.caption(f"Peso total calculado: {peso_total:.0f} kg · Capacidad camión: {truck_cap_kg} kg")
 
             with tab5:
-                st.markdown('<div class="section-title">Explainability de la solución</div>', unsafe_allow_html=True)
+                st.markdown('<div class="section-title">Explicabilidad — por qué esta ruta y esta carga</div>',
+                            unsafe_allow_html=True)
+
+                # Badge: ¿Groq activo o fallback offline?
+                groq_active = bool(os.environ.get("GROQ_API_KEY"))
+                if groq_active:
+                    st.markdown(
+                        "<div style='display:inline-block;background:#dcfce7;color:#166534;padding:0.3rem 0.7rem;"
+                        "border-radius:999px;font-size:0.78rem;font-weight:700;margin-bottom:0.6rem;'>"
+                        "🤖 Generado por Groq · Llama 3.3 70B"
+                        "</div>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.warning(
+                        "⚠️ GROQ_API_KEY no detectada. Se muestran explicaciones de respaldo (sin LLM). "
+                        "Para activar Groq, añade `GROQ_API_KEY=tu_clave` al fichero `.env` y reinicia."
+                    )
+
                 explanations = result.get("explanations", {}) or {}
 
-                if explanations:
-                    if isinstance(explanations, dict):
-                        for key, value in explanations.items():
-                            title = str(key).replace("_", " ").title()
-                            st.markdown(f"### {title}")
-                            if isinstance(value, str):
-                                st.write(value)
-                            else:
-                                st.json(value)
-                    else:
-                        st.write(explanations)
+                # Mapeo de claves técnicas → títulos legibles + iconos
+                _SECTION_META = {
+                    "route":     ("🗺️ Por qué esta ruta",        "Cómo se ordenaron las paradas y qué criterios se priorizaron."),
+                    "packaging": ("📦 Por qué esta carga",         "Cómo evoluciona la ocupación del camión a lo largo de la ruta."),
+                    "fleet":     ("🚛 Por qué esta distribución de flota", "Cómo se repartieron los clientes entre vehículos."),
+                    "routes":    ("📋 Resumen por vehículo",       "Una línea por camión usado."),
+                }
+
+                if not explanations:
+                    st.info("No se han generado explicaciones para esta ejecución. Activa el flag `explain=True` o revisa la API key de Groq.")
                 else:
-                    st.info("No se han generado explicaciones para esta ejecución.")
+                    # Renderizar en un orden coherente
+                    order = ["route", "packaging", "fleet", "routes"]
+                    seen: set[str] = set()
+                    for key in order + [k for k in explanations if k not in order]:
+                        if key not in explanations or key in seen:
+                            continue
+                        seen.add(key)
+                        value = explanations[key]
+                        title, hint = _SECTION_META.get(key, (key.replace("_", " ").title(), ""))
+
+                        st.markdown(
+                            f"<div style='background:linear-gradient(135deg,#f8fafc,white);border-left:5px solid #E20613;"
+                            f"border-radius:12px;padding:0.9rem 1rem;margin:0.6rem 0;box-shadow:0 4px 12px rgba(15,23,42,0.05);'>"
+                            f"<div style='font-weight:800;color:#0f172a;font-size:1.05rem;'>{title}</div>"
+                            f"<div style='color:#64748b;font-size:0.82rem;margin-bottom:0.5rem;'>{hint}</div>"
+                            "</div>",
+                            unsafe_allow_html=True,
+                        )
+
+                        if isinstance(value, str):
+                            st.markdown(value)
+                        elif isinstance(value, list):
+                            for item in value:
+                                if isinstance(item, str):
+                                    st.markdown(f"- {item}")
+                                else:
+                                    st.json(item)
+                        elif isinstance(value, dict):
+                            for k2, v2 in value.items():
+                                st.markdown(f"**{str(k2).replace('_',' ').title()}:** {v2}")
+                        else:
+                            st.write(value)
 
             with tab6:
                 st.markdown('<div class="section-title">Detalles Técnicos</div>', unsafe_allow_html=True)
