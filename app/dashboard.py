@@ -21,10 +21,14 @@ from src import config
 from src.config import TRUCKS
 from src.etl import build_canonical
 from src.loading_visualization import visualize_loading_plan
-import os
-from src.routing import get_route_geometry
 from src.vrp_solver import run_for_fleet, run_for_transporte
+import os
 
+# Configuración de rutas para que no falle el "Path"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+logo_cuadrado = os.path.join(BASE_DIR, "assets", "logo_1x1.jpeg") 
+logo_horizontal = os.path.join(BASE_DIR, "assets", "logo_alargado.jpeg")
+logo_mini = os.path.join(BASE_DIR, "assets", "logo_mini.jpeg") 
 
 st.set_page_config(
     page_title="Damm Smart Truck - Optimizer",
@@ -32,209 +36,118 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+import base64
 
+# Función para convertir tu logo a formato web (base64)
+def get_base64_image(image_path):
+    try:
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except Exception:
+        return ""
 
+# Convertimos el logo cuadrado
+logo_b64 = get_base64_image(logo_mini)
+
+# Fíjate en la "f" antes de las comillas triples
 st.markdown(
-    """
+    f"""
 <style>
-    .main-header {
-        font-size: 2.4rem;
+    /* 1. FONDO BLANCO TOTAL (App, Sidebar y Cabecera) */
+    .stApp, [data-testid="stSidebar"], [data-testid="stHeader"], [data-testid="stToolbar"] {{
+        background-color: #ffffff !important;
+    }}
+
+    /* 2. SUBIR EL LOGO DE LA BARRA LATERAL (logo_cuadrado) */
+    [data-testid="stSidebarHeader"] {{
+        padding-top: 0rem !important;
+        margin-top: -2.8rem !important;
+    }}
+    
+    [data-testid="stSidebarNav"] {{
+        padding-top: 0rem !important;
+    }}
+
+    /* BOTÓN PRIMARIO ROJO DAMM */
+    div.stButton > button[kind="primary"] {{
+        background-color: #E20613 !important;
+        color: #FFFFFF !important;
+        border-color: #E20613 !important;
+    }}
+    
+    div.stButton > button[kind="primary"]:hover {{
+        background-color: #B8050F !important; 
+        border-color: #B8050F !important;
+    }}
+
+    /* 3. SUBIR EL CONTENIDO PRINCIPAL */
+    .block-container {{
+        padding-top: 2rem !important;
+    }}
+
+    /* 4. ESTILO DAMM PARA MÉTRICAS */
+    [data-testid="stMetricValue"] {{
+        color: #E20613 !important;
         font-weight: 800;
-        color: #0f172a;
-        letter-spacing: -0.02em;
-        margin-bottom: 0.25rem;
-    }
-    .sub-header {
-        color: #475569;
-        margin-top: 0;
-        margin-bottom: 1rem;
-    }
-    .hero-card {
-        background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
-        border: 1px solid #dbeafe;
-        border-radius: 18px;
-        padding: 1rem 1.1rem;
-        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
-        margin-bottom: 0.75rem;
-    }
-    .section-title {
-        font-size: 1.15rem;
-        font-weight: 700;
-        color: #0f172a;
-        margin-top: 0.4rem;
-        margin-bottom: 0.4rem;
-    }
-    .muted { color: #64748b; }
-    .badge {
-        display: inline-block;
-        color: white;
-        padding: 0.2rem 0.55rem;
-        border-radius: 999px;
-        font-size: 0.72rem;
-        font-weight: 700;
-        margin-right: 0.35rem;
-    }
-    .route-wrap { width: 100%; }
-    .route-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.92rem;
-        table-layout: fixed;
-    }
-    .route-table th, .route-table td {
-        border: 1px solid #e2e8f0;
-        vertical-align: top;
-        padding: 0.7rem;
-    }
-    .route-table th {
-        background: #0f172a;
-        color: white;
-        text-align: left;
-    }
-    .route-table tr:nth-child(even) { background: #f8fafc; }
-    .route-table td.num {
-        text-align: center;
-        font-weight: 800;
-        width: 48px;
-    }
-    .item-section { margin-bottom: 0.2rem; }
-    .section-head { margin-bottom: 0.45rem; }
-    .item-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-        gap: 0.45rem;
-    }
-    .item-chip {
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 14px;
-        padding: 0.55rem 0.65rem;
-        box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
-    }
-    .item-title {
-        font-weight: 800;
-        color: #0f172a;
-        font-size: 0.88rem;
-    }
-    .item-desc {
-        color: #334155;
-        font-size: 0.8rem;
-        margin-top: 0.15rem;
-    }
-    .item-meta {
-        color: #64748b;
-        font-size: 0.78rem;
-        margin-top: 0.2rem;
-    }
-    .item-empty {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-    }
-    .item-muted { color: #94a3b8; font-size: 0.82rem; }
-    .map-card {
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 18px;
-        padding: 0.4rem;
-        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
-    }
-    .kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-        gap: 0.8rem;
-    }
-    .kpi {
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 16px;
-        padding: 0.9rem;
-        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
-    }
-    .kpi .label { color: #64748b; font-size: 0.78rem; font-weight: 700; }
-    .kpi .value { font-size: 1.55rem; font-weight: 800; color: #0f172a; margin-top: 0.15rem; }
-    .kpi .caption { color: #475569; font-size: 0.8rem; margin-top: 0.2rem; }
-    .loading-map-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-        gap: 0.9rem;
-        margin-top: 0.9rem;
-    }
-    .loading-map-card {
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 18px;
-        padding: 0.9rem;
-        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
-    }
-    .loading-map-title {
-        font-size: 1rem;
-        font-weight: 800;
-        color: #0f172a;
-        margin-bottom: 0.15rem;
-    }
-    .loading-map-subtitle {
-        color: #64748b;
-        font-size: 0.78rem;
-        margin-bottom: 0.75rem;
-    }
-    .seat-grid {
-        display: grid;
-        gap: 0.5rem;
-    }
-    .seat-cell {
-        min-height: 78px;
-        border-radius: 14px;
-        padding: 0.55rem 0.6rem;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        border: 1px solid rgba(255, 255, 255, 0.68);
-        box-shadow: inset 0 -18px 24px rgba(255, 255, 255, 0.11);
-        color: white;
-    }
-    .seat-cell.empty {
-        background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%);
-        color: #334155;
-        border-color: #e2e8f0;
-        box-shadow: inset 0 -16px 20px rgba(255, 255, 255, 0.25);
-    }
-    .seat-cell .slot-num {
-        font-size: 0.92rem;
-        font-weight: 800;
-        line-height: 1;
-    }
-    .seat-cell .slot-pct {
-        font-size: 0.8rem;
-        font-weight: 700;
-        opacity: 0.95;
-    }
-    .seat-cell .slot-main {
-        font-size: 0.72rem;
-        line-height: 1.15;
-        opacity: 0.95;
-    }
-    .seat-cell .slot-meta {
-        font-size: 0.68rem;
-        opacity: 0.8;
-    }
-    .map-pill {
-        display: inline-block;
-        background: #dbeafe;
-        color: #1e3a8a;
-        border-radius: 999px;
-        padding: 0.16rem 0.55rem;
-        font-size: 0.72rem;
-        font-weight: 800;
-        margin-right: 0.35rem;
-    }
+    }}
+    
+    div[data-testid="stVerticalBlock"] > div[style*="flex-direction: column;"] {{
+        background-color: #ffffff;
+        padding: 1rem;
+        border: 1px solid #f0f0f0;
+        border-radius: 10px;
+    }}
+
+    /* 5. LOGO GIRANDO (Adiós a los muñequitos haciendo ejercicio) */
+    /* Ocultamos el contenido original de Streamlit */
+    [data-testid="stStatusWidget"] > div {{
+        display: none !important;
+    }}
+    
+    /* Creamos el nuevo bloque con el logo en base64 y la animación */
+    [data-testid="stStatusWidget"]::before {{
+        content: "";
+        display: block;
+        width: 35px;
+        height: 35px;
+        background-image: url("data:image/jpeg;base64,{logo_b64}");
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        animation: spin 1.2s linear infinite; /* Tiempo que tarda en dar una vuelta completa */
+        border-radius: 8px; /* Redondea los bordes si quieres efecto moneda */
+    }}
+
+    /* Animación de 360 grados continua */
+    @keyframes spin {{
+        0% {{ transform: rotate(0deg); }}
+        100% {{ transform: rotate(360deg); }}
+    }}
 </style>
 """,
     unsafe_allow_html=True,
 )
 
+# 1. LOGO EN EL SIDEBAR (Logo cuadrado agrandado)
+# Mostramos el logo cuadrado con un tamaño más grande en el sidebar
+if os.path.exists(logo_cuadrado):
+    st.sidebar.image(logo_cuadrado, width=90)
 
-st.markdown('<div class="main-header">🚚 Damm Smart Truck - Optimizer</div>', unsafe_allow_html=True)
+# 2. CABECERA PRINCIPAL (Se mantendrá igual pero con fondo blanco total)
+col_logo, col_titulo = st.columns([2, 3]) 
+
+with col_logo:
+    if os.path.exists(logo_horizontal):
+        st.image(logo_horizontal, width=450)
+    else:
+        st.write("🏢")
+
+with col_titulo:
+    # Ajustamos el título para que no tenga márgenes que lo bajen
+    st.markdown("<h1 style='margin-top: 0px;'>Damm Smart Truck</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #666;'><i>Sistema Inteligente de Optimización de Rutas y Cargas</i></p>", unsafe_allow_html=True)
+
+st.divider()
 st.markdown(
     '<p class="sub-header">Optimización de rutas, carga, flota e explainability para demo de hackathon.</p>',
     unsafe_allow_html=True,
@@ -339,14 +252,7 @@ def _build_route_map_html(stops_data: list[dict]) -> str:
         ).add_to(route_map)
 
     if len(coords) > 1:
-        provider = os.environ.get("ROUTING_PROVIDER", "ors")
-        route_geom = get_route_geometry(coords, provider=provider)
-        if route_geom:
-            # route_geom is list of [lat, lng]
-            folium.PolyLine(route_geom, color="#2563eb", weight=5, opacity=0.9).add_to(route_map)
-        else:
-            # fallback: straight lines between waypoints
-            folium.PolyLine(coords, color="#2563eb", weight=5, opacity=0.9).add_to(route_map)
+        folium.PolyLine(coords, color="#2563eb", weight=5, opacity=0.9).add_to(route_map)
 
     return route_map.get_root().render()
 
@@ -893,9 +799,7 @@ if mode == "Flota múltiple":
     )
 
 enable_html = st.sidebar.checkbox("Exportar HTML (visualización interactiva)", value=True)
-
-
-if st.sidebar.button("▶️ RESOLVER OPTIMIZACIÓN", key="solve_btn"):
+if st.sidebar.button("RESOLVER OPTIMIZACION", type="primary", use_container_width=True, key="solve_btn"):
     with st.container():
         progress_placeholder = st.empty()
         status_placeholder = st.empty()
@@ -1164,68 +1068,3 @@ python -m streamlit run app/dashboard.py
         """,
         language="bash",
     )
-
-
-def render_loading_dashboard(load):
-    """
-    Función para renderizar el panel visual de carga en Streamlit.
-    Recibe un objeto 'load' de tipo TruckLoad.
-    """
-    
-    st.title("📦 Damm Smart Truck - Planificador de Carga")
-    
-    st.subheader("🚛 Visualización de la Carga del Camión")
-    st.info(f"**Modelo de Camión:** {load.truck_type} | **Volumen Ocupado:** {load.vol_total_l:.0f} L | **Peso:** {load.peso_total_kg:.0f} kg")
-
-    # 1. Renderizar los gráficos 2D
-    # Llamamos al método de nuestra clase visualizadora
-    fig_2d = TruckVisualizer.plot_2d_views(load)
-    st.plotly_chart(fig_2d, use_container_width=True)
-
-    st.markdown("---")
-
-    # 2. Renderizar las Listas de Operativa (Carga y Descarga)
-    st.subheader("📋 Plan Operativo: Almacén vs Chófer")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown("### 📤 ORDEN DE DESCARGA (Para el Chófer en Ruta)")
-        st.markdown("*Lo que se saca en cada parada, desde las lonas laterales.*")
-        
-        html_descarga = "<div style='display:flex; flex-direction:column; gap:12px;'>"
-        for i, stop in enumerate(load.ordered_stops, 1):
-            html_descarga += f"""
-            <div style="padding: 12px; border-left: 6px solid #ff4b4b; background-color: #fff5f5; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <div style="color: #ff4b4b; font-weight: bold; font-size: 1.1em; margin-bottom: 4px;">Parada {i}</div>
-                <div style="font-size: 1.05em; font-weight: 600; color: #333;">{stop.cliente_nombre}</div>
-                <div style="font-size: 0.9em; color: #666; margin-bottom: 6px;">📍 {stop.poblacion}</div>
-                <div style="font-size: 0.85em; background-color: #ffe0e0; display: inline-block; padding: 3px 8px; border-radius: 4px; color: #d32f2f;">
-                    📦 {stop.volumen_l:.1f} L &nbsp;|&nbsp; ⚖️ {stop.peso_kg:.1f} kg
-                </div>
-            </div>
-            """
-        html_descarga += "</div>"
-        
-        # El parámetro unsafe_allow_html=True es vital para que las tarjetas se rendericen
-        st.markdown(html_descarga, unsafe_allow_html=True)
-
-    with col2:
-        st.markdown("### 📥 ORDEN DE CARGA (Para el Picking en Almacén)")
-        st.markdown("*Lo que el operario del almacén monta primero (ruta inversa).*")
-        
-        stops_inversas = list(reversed(load.ordered_stops))
-        html_carga = "<div style='display:flex; flex-direction:column; gap:12px;'>"
-        for i, stop in enumerate(stops_inversas, 1):
-            html_carga += f"""
-            <div style="padding: 12px; border-left: 6px solid #28a745; background-color: #f0fff4; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <div style="color: #28a745; font-weight: bold; font-size: 1.1em; margin-bottom: 4px;">Paso de Picking {i}</div>
-                <div style="font-size: 1.05em; font-weight: 600; color: #333;">{stop.cliente_nombre}</div>
-                <div style="font-size: 0.9em; color: #666; margin-bottom: 6px;">📍 {stop.poblacion}</div>
-                <div style="font-size: 0.85em; background-color: #d4edda; display: inline-block; padding: 3px 8px; border-radius: 4px; color: #155724;">
-                    📦 {stop.volumen_l:.1f} L &nbsp;|&nbsp; ⚖️ {stop.peso_kg:.1f} kg
-                </div>
-            </div>
-            """
-        html_carga += "</div>"
-        st.markdown(html_carga, unsafe_allow_html=True)

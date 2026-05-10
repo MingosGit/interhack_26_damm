@@ -1,0 +1,11 @@
+[theme]
+# Rojo corporativo tipo Estrella Damm
+primaryColor = "#E20613" 
+# Fondo principal limpio
+backgroundColor = "#F8F9FA"
+# Fondo del menú lateral (sidebar) en blanco para que destaque el logo
+secondaryBackgroundColor = "#FFFFFF"
+# Color del texto (gris muy oscuro para no cansar la vista)
+textColor = "#262730"
+# Tipografía limpia y moderna
+font = "sans serif"
