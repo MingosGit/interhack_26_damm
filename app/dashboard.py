@@ -23,6 +23,8 @@ from src.config import TRUCKS
 from src.etl import build_canonical
 from src.loading_visualization import visualize_loading_plan
 from src.vrp_solver import run_for_fleet, run_for_transporte
+from src.insights import analyze_route, get_top_materiales_by_frequency
+from src.warehouse import recommend_warehouse_layout, picking_path_for_route
 import os
 
 # Configuración de rutas para que no falle el "Path"
@@ -1444,11 +1446,68 @@ if st.sidebar.button("RESOLVER OPTIMIZACION", type="primary", use_container_widt
 
                 st.markdown(_build_loading_overview_html(result), unsafe_allow_html=True)
 
+                # === Estrategia híbrida (req #3): explicar el modelo de carga ===
+                st.divider()
+                st.markdown("### 🧩 Estrategia híbrida de carga (referencia ↔ cliente)")
+                # Métricas de coherencia: cuántos clientes tienen TODA su carga en una sola bahía
+                if stops_data:
+                    n_clients = len({s.get("cliente_id") for s in stops_data})
+                    n_stops = len(stops_data)
+                    n_repeat = n_stops - n_clients
+                    repeat_pct = (n_repeat / n_stops * 100) if n_stops else 0
+                    n_micro = sum(1 for s in stops_data if float(s.get("entrega_l", 0) or 0) < 100)
+                    micro_pct = (n_micro / n_stops * 100) if n_stops else 0
+                    if micro_pct > 30:
+                        modelo, color = "Por referencia", "#0ea5e9"
+                        razon = "Muchas paradas micro: agrupar por SKU al cargar reduce movimientos."
+                    elif n_clients < 8:
+                        modelo, color = "Por cliente", "#16a34a"
+                        razon = "Pocos clientes con grandes volúmenes: una bahía por cliente facilita descarga."
+                    else:
+                        modelo, color = "Híbrido (recomendado)", "#9333ea"
+                        razon = ("Mezcla óptima: clusters geográficos comparten bahías por SKU, "
+                                 "clientes grandes ocupan bahías propias por cliente.")
+                    st.markdown(
+                        f"""
+                        <div style='background:linear-gradient(135deg,#f8fafc,white);border-left:5px solid {color};
+                        border-radius:12px;padding:0.8rem 1rem;margin-top:0.5rem;'>
+                          <div style='font-weight:800;color:{color};font-size:1.05rem;'>Modelo sugerido: {modelo}</div>
+                          <div style='color:#475569;font-size:0.88rem;margin-top:0.25rem;'>{razon}</div>
+                          <div style='display:flex;gap:1rem;margin-top:0.6rem;flex-wrap:wrap;font-size:0.82rem;color:#0f172a;'>
+                            <div>📍 <b>{n_clients}</b> clientes únicos · <b>{n_stops}</b> paradas</div>
+                            <div>🔁 <b>{repeat_pct:.0f}%</b> entregas duplicadas a mismo cliente</div>
+                            <div>📦 <b>{n_micro}</b> micro-paradas (&lt;100 L) · <b>{micro_pct:.0f}%</b></div>
+                          </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                with st.expander("📖 ¿Por qué jerarquía clúster → bahía → cliente → referencia?", expanded=False):
+                    st.markdown(
+                        """
+- **1. Clúster geográfico** → asignar bloque de bahías por barrio/población.
+  Razón: la lona lateral se abre 1 vez por clúster, no por cliente.
+- **2. Una bahía por cliente** dentro del clúster.
+  Razón: el repartidor descarga sin tocar carga de otros clientes (acceso lateral lo permite).
+- **3. Dentro de la bahía, ordenado por SKU** (referencia).
+  Razón: el albarán del chófer ya viene agrupado por SKU; menos errores.
+- **4. Apilamiento por estabilidad**: barriles abajo, cajas medio, frágiles arriba.
+
+Esta jerarquía maximiza dos eficiencias a la vez:
+- **Picking en almacén** (agrupar por SKU = menos paseos)
+- **Descarga en cliente** (agrupar por cliente = menos movimientos)
+
+El packer del proyecto (`src/packer.py` + `src/loading_visualization.py`) implementa esta jerarquía.
+                        """
+                    )
+
             with tab4:
-                st.markdown('<div class="section-title">Análisis e Insights</div>', unsafe_allow_html=True)
+                st.markdown('<div class="section-title">Análisis e Insights automáticos</div>', unsafe_allow_html=True)
                 total_entrega = float(result.get("entrega_total_l", 0) or 0)
                 total_recogida = float(result.get("recogida_total_l", 0) or 0)
                 peso_total = float(result.get("peso_kg", 0) or 0)
+                truck_cap_l = int(TRUCKS[truck_selected]["vol_m3"] * 1000)
+                truck_cap_kg = int(TRUCKS[truck_selected]["peso_max_kg"])
 
                 st.markdown(
                     f"""
@@ -1462,65 +1521,186 @@ if st.sidebar.button("RESOLVER OPTIMIZACION", type="primary", use_container_widt
                     unsafe_allow_html=True,
                 )
 
+                # === Llamada al motor de insights real ===
+                try:
+                    insight = analyze_route(
+                        transporte_id=int(transport_id),
+                        stops=stops_data,
+                        baseline_time_s=int(result.get("baseline_time_s", 0) or 0),
+                        baseline_dist_m=int(result.get("baseline_dist_m", 0) or 0),
+                        opt_time_s=int(result.get("opt_time_s", 0) or 0),
+                        opt_dist_m=int(result.get("opt_dist_m", 0) or 0),
+                        truck_capacity_l=truck_cap_l,
+                        truck_capacity_kg=truck_cap_kg,
+                        total_entrega_l=total_entrega,
+                        total_recogida_l=total_recogida,
+                    )
+                except Exception as e:
+                    insight = None
+                    st.warning(f"No se pudieron calcular insights detallados: {e}")
+
+                if insight:
+                    st.divider()
+                    st.subheader("🎯 Criterios priorizados por el optimizador")
+                    chips = " ".join(
+                        f"<span class='badge' style='background:#1e40af;'>{escape(c)}</span>"
+                        for c in insight.optimization_criteria
+                    )
+                    st.markdown(f"<div>{chips}</div>", unsafe_allow_html=True)
+
+                    if insight.cluster_recommendations:
+                        st.divider()
+                        st.subheader("👥 Oportunidades de agrupación")
+                        for c in insight.cluster_recommendations[:6]:
+                            prio = c.get("priority", "medium")
+                            color = {"high": "#dc2626", "medium": "#f59e0b", "low": "#64748b"}.get(prio, "#64748b")
+                            ctype = "🌍 Cluster geográfico" if c.get("type") == "geographic_cluster" else "🔁 Cliente repetido"
+                            extra = (f"📍 {c.get('location', '')} · {c.get('stops', '')} paradas · "
+                                     f"{c.get('volume_l', 0):.0f}L"
+                                     if c.get("type") == "geographic_cluster"
+                                     else f"👤 {c.get('cliente_nombre', '')} · {c.get('visits', '')} visitas · "
+                                          f"paradas {c.get('orders', [])}")
+                            st.markdown(
+                                f"<div style='background:white;border-left:4px solid {color};border-radius:8px;"
+                                f"padding:0.6rem 0.8rem;margin-bottom:0.4rem;box-shadow:0 2px 6px rgba(0,0,0,0.04);'>"
+                                f"<b>{ctype}</b> · <span style='color:{color};font-weight:700;'>{prio.upper()}</span><br>"
+                                f"<span style='color:#64748b;font-size:0.85rem;'>{escape(extra)}</span><br>"
+                                f"<span style='font-size:0.85rem;'>{escape(c.get('note', ''))}</span>"
+                                f"</div>",
+                                unsafe_allow_html=True,
+                            )
+
+                    col_f, col_e = st.columns(2)
+                    with col_f:
+                        st.subheader("⚠️ Puntos de fricción")
+                        for fp in insight.friction_points[:8]:
+                            icon = "🔴" if "ALERTA" in fp else "🟡"
+                            st.markdown(f"{icon} {fp}")
+                    with col_e:
+                        st.subheader("⚡ Alertas de eficiencia")
+                        for ea in insight.efficiency_alerts[:8]:
+                            icon = "🔴" if "Alto" in ea or "ALERTA" in ea else "🟢"
+                            st.markdown(f"{icon} {ea}")
+
+                    st.divider()
+                    st.subheader("🚀 Recomendaciones accionables")
+                    if insight.recommendations:
+                        for rec in insight.recommendations:
+                            prio = rec.get("priority", "medium")
+                            color = {"high": "#dc2626", "medium": "#f59e0b", "low": "#16a34a"}.get(prio, "#64748b")
+                            with st.expander(
+                                f"{'🔴' if prio == 'high' else '🟡' if prio == 'medium' else '🟢'} "
+                                f"[{prio.upper()}] {rec.get('description', '')}",
+                                expanded=(prio == "high"),
+                            ):
+                                st.markdown(f"**Detalle:** {rec.get('details', '')}")
+                                st.markdown(f"**Impacto:** {rec.get('impact', '')}")
+                                st.caption(f"action_id: `{rec.get('action', '')}`")
+                    else:
+                        st.info("Sin recomendaciones accionables para esta ruta.")
+
+                # === Recomendación de Layout del Almacén (req #7) ===
+                st.divider()
+                st.subheader("🏭 Layout del almacén — propuesta de reorganización")
+                st.caption(
+                    "Basado en frecuencia y volumen reales de SKUs en TODO el dataset histórico. "
+                    "Mover los más frecuentes pegados al muelle reduce minutos de picking por ruta."
+                )
+                try:
+                    layout_recs = recommend_warehouse_layout(top_k=20)
+                except Exception as e:
+                    layout_recs = []
+                    st.warning(f"No se pudo calcular layout del almacén: {e}")
+
+                if layout_recs:
+                    # Distribución por zona
+                    zone_counts: dict[str, int] = {}
+                    total_ahorro = 0.0
+                    for r in layout_recs:
+                        zone_counts[r.zona_recomendada] = zone_counts.get(r.zona_recomendada, 0) + 1
+                        total_ahorro += r.ahorro_estimado_min
+                    zone_chips = "".join(
+                        f"<span class='badge' style='background:{'#16a34a' if z=='muelle' else '#f59e0b' if z=='intermedia' else '#0ea5e9' if z=='media' else '#64748b'};'>"
+                        f"{z}: {n}</span> "
+                        for z, n in zone_counts.items()
+                    )
+                    st.markdown(
+                        f"<div style='margin-bottom:0.6rem;'>{zone_chips}"
+                        f"<span style='margin-left:0.5rem;color:#64748b;font-size:0.85rem;'>"
+                        f"Ahorro estimado total: <b>{total_ahorro:.0f} min</b> sobre el histórico"
+                        "</span></div>",
+                        unsafe_allow_html=True,
+                    )
+                    st.dataframe(
+                        pd.DataFrame([
+                            {
+                                "Material": r.material,
+                                "Descripción": r.denominacion[:50],
+                                "UMA": r.uma,
+                                "Aparece en": f"{r.frecuencia_transportes} ({r.frecuencia_pct*100:.1f}%)",
+                                "Vol. histórico": f"{r.volumen_total_l:.0f} L",
+                                "Zona recomendada": r.zona_recomendada,
+                                "Ahorro/ruta (min)": f"{r.ahorro_estimado_min:.1f}",
+                            }
+                            for r in layout_recs
+                        ]),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+                    # Picking path para la ruta actual (LIFO)
+                    if stops_data:
+                        path = picking_path_for_route(stops_data, layout_recs)
+                        st.markdown(
+                            f"**Picking estimado para ESTA ruta:** "
+                            f"{path['total_lines']} líneas · "
+                            f"{path['estimated_pick_time_min']} min "
+                            f"(media {path['avg_min_per_line']} min/línea)"
+                        )
+
+                # === Tablas de entrega vs recogida (mantener) ===
                 st.divider()
                 st.subheader("📌 Qué se entrega y qué se recoge")
                 all_materials = [m for s in stops_data for m in (s.get("materiales", []) or [])]
                 col_a, col_b = st.columns(2)
-
                 with col_a:
                     entrega_agg = _group_materials(all_materials, retornable=False)
+                    st.markdown("**Entregas (a bahías)**")
                     if entrega_agg:
                         st.dataframe(
-                            pd.DataFrame(
-                                [
-                                    {
-                                        "Material": x["material"],
-                                        "Descripción": x["denominacion"],
-                                        "Unidades": x["cantidad"],
-                                        "Peso": f"{x['peso_kg']:.0f} kg",
-                                    }
-                                    for x in entrega_agg
-                                ]
-                            ),
-                            use_container_width=True,
-                            hide_index=True,
+                            pd.DataFrame([
+                                {
+                                    "Material": x["material"],
+                                    "Descripción": x["denominacion"][:40],
+                                    "Uds": x["cantidad"],
+                                    "Vol": f"{x['vol_l']:.0f} L",
+                                    "Peso": f"{x['peso_kg']:.0f} kg",
+                                } for x in entrega_agg
+                            ]),
+                            use_container_width=True, hide_index=True,
                         )
                     else:
                         st.info("Sin entregas registradas")
-
                 with col_b:
                     recogida_agg = _group_materials(all_materials, retornable=True)
+                    st.markdown("**Recogidas (a toldos)**")
                     if recogida_agg:
                         st.dataframe(
-                            pd.DataFrame(
-                                [
-                                    {
-                                        "Material": x["material"],
-                                        "Descripción": x["denominacion"],
-                                        "Unidades": x["cantidad"],
-                                        "Peso": f"{x['peso_kg']:.0f} kg",
-                                    }
-                                    for x in recogida_agg
-                                ]
-                            ),
-                            use_container_width=True,
-                            hide_index=True,
+                            pd.DataFrame([
+                                {
+                                    "Material": x["material"],
+                                    "Descripción": x["denominacion"][:40],
+                                    "Uds": x["cantidad"],
+                                    "Vol": f"{x['vol_l']:.0f} L",
+                                    "Peso": f"{x['peso_kg']:.0f} kg",
+                                } for x in recogida_agg
+                            ]),
+                            use_container_width=True, hide_index=True,
                         )
                     else:
-                        st.info("Sin recogidas registradas")
+                        st.info("Sin recogidas registradas (toldos vacíos)")
 
-                st.divider()
-                st.subheader("💡 Recomendaciones operacionales")
-                recommendations = [
-                    "Consolidar micro-paradas: agrupar clientes pequeños cercanos.",
-                    "Equilibrar carga entre bahías: usar el 4-bay layout para estabilidad.",
-                    "Usar toldos laterales para retornables: evita bloqueos de descarga.",
-                    "Reorganizar almacén por frecuencia: productos más usados más cerca del muelle.",
-                ]
-                for i, rec in enumerate(recommendations, 1):
-                    st.write(f"**{i}. {rec}**")
-
-                st.caption(f"Peso total calculado: {peso_total:.0f} kg")
+                st.caption(f"Peso total calculado: {peso_total:.0f} kg · Capacidad camión: {truck_cap_kg} kg")
 
             with tab5:
                 st.markdown('<div class="section-title">Explainability de la solución</div>', unsafe_allow_html=True)
