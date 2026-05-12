@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Plan de carga - Transporte 11561536 (8P)</title>
+    <style>
+        :root { --bg:#f8fafc; --card:#ffffff; --text:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#2563eb; }
+        body { font-family: Inter, Arial, sans-serif; margin: 24px; background: var(--bg); color: var(--text); line-height: 1.4; }
+        h1 { margin: 0 0 6px; }
+        .subtitle { color: var(--muted); margin-bottom: 18px; }
+        .grid { display: grid; gap: 14px; }
+        .kpis { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); display:grid; gap:12px; margin-bottom: 18px; }
+        .kpi { background: var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05); }
+        .kpi .label { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; }
+        .kpi .value { font-size: 26px; font-weight: 800; margin-top: 4px; }
+        .card { background: var(--card); border:1px solid var(--line); border-radius: 18px; padding: 16px; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05); margin-bottom: 16px; }
+        .mono { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#0b1220; color:#e2e8f0; border-radius:14px; padding:14px; overflow:auto; }
+        .zone-grid, .pick-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+        .zone-card, .pick-card { background: #fff; border:1px solid var(--line); border-radius: 16px; padding: 14px; }
+        .zone-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:8px; }
+        .zone-name { font-weight: 800; }
+        .zone-tag { background:#dbeafe; color:#1e3a8a; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:700; }
+        .zone-meta { font-size: 13px; color: var(--text); margin-top: 6px; }
+        .muted { color: var(--muted); }
+        .bar { width: 100%; height: 10px; background: #e2e8f0; border-radius:999px; overflow:hidden; }
+        .bar-fill { height: 100%; background: linear-gradient(90deg, #38bdf8, #2563eb); }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid var(--line); padding: 10px; text-align:left; vertical-align: top; }
+        th { background: #0f172a; color: white; }
+        ul { margin: 0; padding-left: 20px; }
+        .small { font-size: 13px; color: var(--muted); }
+        .pick-title { font-weight: 800; margin-bottom: 4px; }
+        .pick-sub { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+        .pick-list { font-size: 13px; line-height: 1.45; }
+    </style>
+</head>
+<body>
+    <h1>Plan de carga - Transporte 11561536 (8P)</h1>
+    <div class="subtitle">Visualización ejecutiva del plan de carga, secuencia de picking y estabilidad por bahías.</div>
+
+    <div class="kpis">
+        <div class="kpi"><div class="label">Zonas</div><div class="value">10</div><div class="small">4 bahías + 2 toldos</div></div>
+        <div class="kpi"><div class="label">Paradas</div><div class="value">27</div><div class="small">Preparación en almacén</div></div>
+        <div class="kpi"><div class="label">Notas</div><div class="value">12</div><div class="small">Seguridad y equilibrio</div></div>
+        <div class="kpi"><div class="label">Capacidad visual</div><div class="value">4-bay</div><div class="small">Top-down, N-S</div></div>
+    </div>
+
+    <div class="card">
+        <h2>Vista ASCII</h2>
+        <div class="mono">
+================================================================================
+CAMION 8P - VISTA DESDE ARRIBA (PLANO TOP-DOWN)
+================================================================================
+(2 filas × 4 columnas · con toldos laterales)
+
+  FRENTE DEL VEHICULO (Cabina)
+  [TOLDO IZQ ←]                         [→ TOLDO DER]
+  +------+------+------+------+
+  | N1 26%| N2 22%| N3 21%| N4 21% |
+  +------+------+------+------+
+  | S1 21%| S2 21%| S3 21%| S4 21% |
+  +------+------+------+------+
+  TOLDO IZQ:  3200/3200L (100%)   TOLDO DER:   910/3200L ( 28%)
+              ||
+           RAMPA TRASERA (descarga principal)
+================================================================================
+
+[RESUMEN DE OCUPACION]
+--------------------------------------------------------------------------------
+VOLUMEN TOTAL:  8365.0 L / 19200 L ( 43.6%)
+
+DISTRIBUCION POR BAHIA:
+  N1:   641.5L ( 26.7%) |  1377.0kg
+  N2:   550.0L ( 22.9%) |   330.0kg
+  N3:   510.6L ( 21.3%) |   591.2kg
+  N4:   510.7L ( 21.3%) |   543.3kg
+  S1:   510.5L ( 21.3%) |   588.9kg
+  S2:   510.5L ( 21.3%) |   454.7kg
+  S3:   510.7L ( 21.3%) |   683.7kg
+  S4:   510.4L ( 21.3%) |   584.6kg
+
+RETORNABLES (Toldos Laterales):
+  Toldo Izquierdo:  3200.0L / 3200L
+  Toldo Derecho:     910.0L / 3200L
+
+--------------------------------------------------------------------------------
+[DETALLE POR BAHIA]
+--------------------------------------------------------------------------------
+
+N1 - BAHIA N-1 (palet 1 de 4, lado norte)
+  Capacidad: 2400L
+  Actual:    642L
+  Acceso:    trasero/lateral_norte
+    * ED13 (CAJ)                       641.5L  1377.0kg
+
+N2 - BAHIA N-2 (palet 2 de 4, lado norte)
+  Capacidad: 2400L
+  Actual:    550L
+  Acceso:    trasero/lateral_norte
+    * BRL30V (BRL)                     550.0L   330.0kg
+
+N3 - BAHIA N-3 (palet 3 de 4, lado norte)
+  Capacidad: 2400L
+  Actual:    511L
+  Acceso:    trasero/lateral_norte
+    * ED30 (BRL)                       270.0L   385.1kg
+    * 3ENV0060 (CAJ)                    60.0L    20.0kg
+    * 0AM0292 (CAJ)                     34.1L    20.0kg
+    * 0LM0506 (CAJ)                     30.0L    10.0kg
+    * 0RF0169 (CAJ)                     24.0L    26.2kg
+    * 0RF0020 (CAJ)                     23.8L    25.8kg
+    * FD13 (CAJ)                        15.8L    34.0kg
+    * VO15LN (CAJ)                      12.0L    28.7kg
+    * 0LM2445 (UN)                      10.0L     5.0kg
+    * FDL13 (CAJ)                        7.9L    17.0kg
+    * 0AM1278 (UN)                       6.7L     5.0kg
+    * 0LI0720 (BOT)                      6.0L     2.0kg
+    * 0ZU0018 (CAJ)                      4.8L     8.4kg
+    * 0AM0021 (UN)                       3.5L     2.0kg
+    * 0LI2687 (UN)                       2.0L     2.0kg
+
+N4 - BAHIA N-4 (palet 4 de 4, lado norte)
+  Capacidad: 2400L
+  Actual:    511L
+  Acceso:    trasero/lateral_norte
+    * VE32SP (CAJ)                     270.0L   293.4kg
+    * CJ13V (CAJ)                       60.0L    20.0kg
+    * 0AM0312 (UN)                      32.0L     2.0kg
+    * CJ12V (CAJ)                       30.0L    10.0kg
+    * 0VE0524 (CAJ)                     27.0L    45.0kg
+    * DL20 (BRL)                        20.0L    27.6kg
+    * 0AM0361 (UN)                      18.6L     0.5kg
+    * 0AM0139 (UN)                      13.0L     6.5kg
+    * 0RF0010 (CAJ)                      9.0L    10.0kg
+    * DL13 (CAJ)                         7.9L    17.0kg
+    * 0AM1634 (ZPR)                      7.5L     0.1kg
+    * 0ZU0755 (CAJ)                      6.0L     6.0kg
+    * 0CF0080 (UN)                       4.0L     4.0kg
+    * 0AM5519 (UN)                       4.0L    99.6kg
+    * 0AM5387 (UN)                       1.0L     0.5kg
+    * 0LI0084 (BOT)                      0.7L     1.0kg
+
+S1 - BAHIA S-1 (palet 1 de 4, lado sur)
+  Capacidad: 2400L
+  Actual:    510L
+  Acceso:    trasero/lateral_sur
+    * VE12SP (CAJ)                     216.0L   232.2kg
+    * 0LM1683 (CAJ)                     60.0L    20.0kg
+    * ED15LN (CAJ)                      48.0L   114.7kg
+    * TU20 (BRL)                        40.0L    54.8kg
+    * 0CF1122 (CAJ)                     30.0L    10.0kg
+    * 0LT0103 (CAJ)                     24.0L    26.2kg
+    * 0RF1698 (CAJ)                     23.8L    25.8kg
+    * 0LT0061 (CAJ)                     18.0L    19.5kg
+    * VE12 (CAJ)                        10.0L    20.4kg
+    * 0ZU0021 (CAJ)                      9.6L    16.8kg
+    * 0LM0091 (CAJ)                      8.0L     5.0kg
+    * KE13 (CAJ)                         7.9L    17.0kg
+    * 0LM1158 (UN)                       6.0L     2.6kg
+    * 0LM0102 (UN)                       4.0L    20.0kg
+    * 0AM0023 (UN)                       3.5L     2.0kg
+    * 0LI0045 (BOT)                      1.0L     1.0kg
+    * 0LI0044 (BOT)                      0.7L     1.0kg
+
+S2 - BAHIA S-2 (palet 2 de 4, lado sur)
+  Capacidad: 2400L
+  Actual:    511L
+  Acceso:    trasero/lateral_sur
+    * 3ENV0029 (CAJ)                   210.0L    70.0kg
+    * DL30 (BRL)                        60.0L    86.2kg
+    * 0LT0034 (CAJ)                     54.0L    54.0kg
+    * NTL13LT6 (CAJ)                    39.6L    43.1kg
+    * 0AM0705 (CAJ)                     30.0L    10.0kg
+    * 0AG0004 (CAJ)                     24.0L    26.0kg
+    * 0RF0014 (CAJ)                     24.0L    20.0kg
+    * 0VE0506 (CAJ)                     18.0L    30.0kg
+    * VE13SP (CAJ)                      11.6L    12.7kg
+    * 0LI2732 (CAJ)                      8.4L     8.4kg
+    * 0AM5510 (UN)                       8.0L    22.0kg
+    * 0AG0183 (CAJ)                      7.2L    14.1kg
+    * 0ZU0754 (CAJ)                      6.0L     6.0kg
+    * 0ZU0734 (CAJ)                      4.8L     8.6kg
+    * 0VE2636 (CAJ)                      2.4L    40.0kg
+    * 0LI0185 (BOT)                      2.1L     3.0kg
+    * 0CF0058 (UN)                       0.5L     0.6kg
+
+S3 - BAHIA S-3 (palet 3 de 4, lado sur)
+  Capacidad: 2400L
+  Actual:    511L
+  Acceso:    trasero/lateral_sur
+    * 0LT0033 (CAJ)                    207.0L   207.0kg
+    * XI13 (CAJ)                        79.2L   170.0kg
+    * 0LT0032 (CAJ)                     42.0L    54.6kg
+    * 0AG0039 (CAJ)                     36.0L    76.0kg
+    * 0AM1610 (CAJ)                     30.0L    10.0kg
+    * 0LT0235 (CAJ)                     24.0L    26.0kg
+    * FDT13 (CAJ)                       23.8L    51.0kg
+    * PI13 (CAJ)                        15.8L    34.3kg
+    * 0AG0006 (CAJ)                     11.7L    12.7kg
+    * 0AM5517 (UN)                      10.0L     4.3kg
+    * 0AM1167 (CAJ)                      8.0L     0.5kg
+    * NTF13L6F (CAJ)                     7.9L     8.6kg
+    * 0AM0020 (CAJ)                      5.4L     2.8kg
+    * 0VE2132 (CAJ)                      4.2L     4.5kg
+    * 0LM1712 (UN)                       4.0L    20.0kg
+    * 0AM5394 (UN)                       1.0L     0.5kg
+    * 0LI0101 (BOT)                      0.7L     1.0kg
+
+S4 - BAHIA S-4 (palet 4 de 4, lado sur)
+  Capacidad: 2400L
+  Actual:    510L
+  Acceso:    trasero/lateral_sur
+    * BRL20V (BRL)                     150.0L    90.0kg
+    * VO13 (CAJ)                       134.6L   289.0kg
+    * 0RF1697 (CAJ)                     47.5L    51.6kg
+    * 0LM1682 (CAJ)                     30.0L    10.0kg
+    * 3ENV0236 (CAJ)                    30.0L    10.0kg
+    * 0CF0080 (ZPR)                     26.3L     3.0kg
+    * NTL13B24 (CAJ)                    23.8L    41.6kg
+    * 0AM1290 (CAJ)                     15.0L    16.0kg
+    * 0ZU0024 (CAJ)                     14.4L    25.2kg
+    * 0VE2133 (CAJ)                      8.4L     9.0kg
+    * CM13 (CAJ)                         7.9L    17.0kg
+    * 0AM0019 (CAJ)                      6.6L     3.3kg
+    * 0LT0090 (CAJ)                      6.0L     6.5kg
+    * 0ZU0020 (CAJ)                      4.8L     8.4kg
+    * 0LI0982 (BOT)                      3.0L     1.0kg
+    * 0LI0050 (BOT)                      2.1L     3.0kg
+
+TOLDO LATERAL IZQUIERDO (Retornables)
+  Capacidad: 3200L
+    * CJ13 (CAJ) · parte 1            3200.0L
+
+TOLDO LATERAL DERECHO (Retornables)
+  Capacidad: 3200L
+    * CJ13 (CAJ) · parte 2             610.0L
+    * CJ15 (CAJ)                       300.0L
+
+================================================================================</div>
+    </div>
+
+    <div class="card">
+        <h2>Zonas de carga</h2>
+        <div class="zone-grid">
+            <div class="zone-card">
+                <div class="zone-head">
+                    <div class="zone-name">BAHIA N-1 (palet 1 de 4, lado norte)</div>
+                    <div class="zone-tag">bay_n1</div>
+                </div>
+                <div class="bar"><div class="bar-fill" style="width:26.7%"></div></div>
+                <div class="zone-meta">642 / 2400 L · 26.7%</div>
+                <div class="zone-meta muted">trasero/lateral_norte</div>
+            </div>
+            
+            <div class="zone-card">
+                <div class="zone-head">
+                    <div class="zone-name">BAHIA N-2 (palet 2 de 4, lado norte)</div>
+                    <div class="zone-tag">bay_n2</div>
+                </div>
+                <div class="bar"><div class="bar-fill" style="width:22.9%"></div></div>
+                <div class="zone-meta">550 / 2400 L · 22.9%</div>
+                <div class="zone-meta muted">trasero/lateral_norte</div>
+            </div>
+            
+            <div class="zone-card">
+                <div class="zone-head">
+                    <div class="zone-name">BAHIA N-3 (palet 3 de 4, lado norte)</div>
+                    <div class="zone-tag">bay_n3</div>
+                </div>
+                <div class="bar"><div class="bar-fill" style="width:21.3%"></div></div>
+                <div class="zone-meta">511 / 2400 L · 21.3%</div>
+                <div class="zone-meta muted">trasero/lateral_norte</div>
+            </div>
+            
+            <div class="zone-card">
+                <div class="zone-head">
+                    <div class="zone-name">BAHIA N-4 (palet 4 de 4, lado norte)</div>
+                    <div class="zone-tag">bay_n4</div>
+                </div>
+                <div class="bar"><div class="bar-fill" style="width:21.3%"></div></div>
+                <div class="zone-meta">511 / 2400 L · 21.3%</div>
+                <div class="zone-meta muted">trasero/lateral_norte</div>
+            </div>
+            
+            <div class="zone-card">
+                <div class="zone-head">
+                    <div class="zone-name">BAHIA S-1 (palet 1 de 4, lado sur)</div>
+                    <div class="zone-tag">bay_s1</div>
+                </div>
+                <div class="bar"><div class="bar-fill" style="width:21.3%"></div></div>
+                <div class="zone-meta">510 / 2400 L · 21.3%</div>
+                <div class="zone-meta muted">trasero/lateral_sur</div>
+            </div>
+            
+            <div class="zone-card">
+                <div class="zone-head">
+                    <div class="zone-name">BAHIA S-2 (palet 2 de 4, lado sur)</div>
+                    <div class="zone-tag">bay_s2</div>
+                </div>
+                <div class="bar"><div class="bar-fill" style="width:21.3%"></div></div>
+                <div class="zone-meta">511 / 2400 L · 21.3%</div>
+                <div class="zone-meta muted">trasero/lateral_sur</div>
+            </div>
+            
+            <div class="zone-card">
+                <div class="zone-head">
+                    <div class="zone-name">BAHIA S-3 (palet 3 de 4, lado sur)</div>
+                    <div class="zone-tag">bay_s3</div>
+                </div>
+                <div class="bar"><div class="bar-fill" style="width:21.3%"></div></div>
+                <div class="zone-meta">511 / 2400 L · 21.3%</div>
+                <div class="zone-meta muted">trasero/lateral_sur</div>
+            </div>
+            
+            <div class="zone-card">
+                <div class="zone-head">
+                    <div class="zone-name">BAHIA S-4 (palet 4 de 4, lado sur)</div>
+                    <div class="zone-tag">bay_s4</div>
+                </div>
+                <div class="bar"><div class="bar-fill" style="width:21.3%"></div></div>
+                <div class="zone-meta">510 / 2400 L · 21.3%</div>
+                <div class="zone-meta muted">trasero/lateral_sur</div>
+            </div>
+            
+            <div class="zone-card">
+                <div class="zone-head">
+                    <div class="zone-name">TOLDO LATERAL IZQUIERDO (retornables)</div>
+                    <div class="zone-tag">toldo_izq</div>
+                </div>
+                <div class="bar"><div class="bar-fill" style="width:100.0%"></div></div>
+                <div class="zone-meta">3200 / 3200 L · 100.0%</div>
+                <div class="zone-meta muted">lateral_deslizable</div>
+            </div>
+            
+            <div class="zone-card">
+                <div class="zone-head">
+                    <div class="zone-name">TOLDO LATERAL DERECHO (retornables)</div>
+                    <div class="zone-tag">toldo_der</div>
+                </div>
+                <div class="bar"><div class="bar-fill" style="width:28.4%"></div></div>
+                <div class="zone-meta">910 / 3200 L · 28.4%</div>
+                <div class="zone-meta muted">lateral_deslizable</div>
+            </div>
+            </div>
+    </div>
+
+    <div class="card">
+        <h2>Notas de seguridad</h2>
+        <ul><li>⚠ Bahías con cargas desiguales - verifica estabilidad</li><li>✓ Retornables en toldos laterales (4110L de 6400L disponibles)</li><li>  - Toldo Izquierdo: 3200L / 3200L</li><li>  - Toldo Derecho:   910L / 3200L</li><li></li><li>INSTRUCCIONES DE CARGA:</li><li>1. Usar acceso trasero (rampa principal) para bahías</li><li>2. Distribuir peso equilibradamente entre bahías N-S</li><li>3. Retornables siempre en toldos laterales cuando quepan (acceso fácil)</li><li>4. Asegurar cargas con flejes metalicos</li><li>5. Respetar altura maxima techo (2.1m)</li><li>6. Revisar presion de neumaticos antes de salir</li></ul>
+    </div>
+
+    <div class="card">
+        <h2>Orden de picking (almacén)</h2>
+        <div class="pick-grid">
+            <div class="pick-card">
+                <div class="pick-title">RESTAURANTE MELARA</div>
+                <div class="pick-sub">Parada 27 · ROCA DEL VALLES, LA</div>
+                <div class="pick-list">BOT → bay_n1/bay_n2/bay_s1/bay_s2 (4 uds)<br>CAJ → bay_n3/bay_n4/bay_s3/bay_s4 (9 uds)<br>UN → bay_n3/bay_n4/bay_s3/bay_s4 (5 uds)</div>
+            </div>
+            
+            <div class="pick-card">
+                <div class="pick-title">RESTAURANTE MELARA</div>
+                <div class="pick-sub">Parada 26 · ROCA DEL VALLES, LA</div>
+                <div class="pick-list">CAJ → bay_n3/bay_n4/bay_s3/bay_s4 (2 uds)</div>
+            </div>
+            
+            <div class="pick-card">
+                <div class="pick-title">RSTE. PEIX D'OR</div>
+                <div class="pick-sub">Parada 25 · LA ROCA DEL VALLÈS</div>
+                <div class="pick-list">BOT → bay_n1/bay_n2/bay_s1/bay_s2 (3 uds)<br>CAJ → bay_n3/bay_n4/bay_s3/bay_s4 (5 uds)<br>UN → bay_n3/bay_n4/bay_s3/bay_s4 (6 uds)</div>
+            </div>
+            
+            <div class="pick-card">
+                <div class="pick-title">PUNTO</div>
+                <div class="pick-sub">Parada 24 · ROCA DEL VALLES (LA)</div>
+                <div class="pick-list">CAJ → bay_n3/bay_n4/bay_s3/bay_s4 (9 uds)</div>
+            </div>
+            
+            <div class="pick-card">
+                <div class="pick-title">PUNTO</div>
+                <div class="pick-sub">Parada 23 · ROCA DEL VALLES (LA)</div>
+                <div class="pick-list">CAJ → bay_n3/bay_n4/bay_s3/bay_s4 (1 uds)</div>
+            </div>
+            
+            <div class="pick-card">
+                <div class="pick-title">BAR GARCIA</div>
+                <div class="pick-sub">Parada 22 · ROCA DEL VALLES (LA)</div>
+                <div class="pick-list">CAJ → bay_n3/bay_n4/bay_s3/bay_s4 (4 uds)<br>UN → bay_n3/bay_n4/bay_s3/bay_s4 (1 uds)</div>
+            </div>
+            
+            <div class="pick-card">
+                <div class="pick-title">CAFETERIA LA CANTONADA</div>
+                <div class="pick-sub">Parada 21 · GRANOLLERS</div>
+                <div class="pick-list">CAJ → bay_n3/bay_n4/bay_s3/bay_s4 (3 uds)</div>
+            </div>
+            
+            <div class="pick-card">
+                <div class="pick-title">CAFETERIA LA CANTONADA</div>
+                <div class="pick-sub">Parada 20 · GRANOLLERS</div>
+                <div class="pick-list">CAJ → bay_n3/bay_n4/bay_s3/bay_s4 (1 uds)</div>
+            </div>
+            
+            <div class="pick-card">
+                <div class="pick-title">BAR XARANA GRANOLLERS</div>
+                <div class="pick-sub">Parada 19 · GRANOLLERS</div>
+                <div class="pick-list">BRL → bay_n1/bay_n2/bay_s1/bay_s2 (2 uds)<br>CAJ → bay_n3/bay_n4/bay_s3/bay_s4 (8 uds)</div>
+            </div>
+            
+            <div class="pick-card">
+                <div class="pick-title">BAR RESTAURANTE MERLY´S</div>
+                <div class="pick-sub">Parada 18 · GRANOLLERS</div>
+                <div class="pick-list">BRL → bay_n1/bay_n2/bay_s1/bay_s2 (2 uds)<br>CAJ → bay_n3/bay_n4/bay_s3/bay_s4 (8 uds)</div>
+            </div>
+            
+            <div class="pick-card">
+                <div class="pick-title">TROBADA</div>
+                <div class="pick-sub">Parada 17 · GRANOLLERS</div>
+                <div class="pick-list">CAJ → bay_n3/bay_n4/bay_s3/bay_s4 (5 uds)<br>UN → bay_n3/bay_n4/bay_s3/bay_s4 (2 uds)<br>ZPR → bahia_asignada (2 uds)</div>
+            </div>
+            
+            <div class="pick-card">
+                <div class="pick-title">SALON GRANOLLERS MACIA - CIRSA</div>
+                <div class="pick-sub">Parada 16 · GRANOLLERS</div>
+                <div class="pick-list">CAJ → bay_n3/bay_n4/bay_s3/bay_s4 (2 uds)</div>
+            </div>
+            </div>
+    </div>
+</body>
+</html>
